@@ -1,9 +1,9 @@
 import React from 'react'
-
+import Header from '@/components/Header';
 const page = () => {
   return (
-    <div>
-        <h1>Home</h1>
+    <div className="min-h-screen flex flex-col bg-[#fdfbf7]">
+        <Header />
     </div>
   )
 }
