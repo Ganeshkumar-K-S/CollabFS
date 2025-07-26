@@ -1,3 +1,5 @@
+'use client';
+
 import React from "react";
 
 export default function Login_Signup({
@@ -27,27 +29,26 @@ export default function Login_Signup({
   };
 
   return (
-    <div className="w-full max-w-md sm:max-w-lg md:max-w-xl text-black">
-
-      <div className="bg-white rounded-2xl shadow-lg p-8 space-y-6 text-left">
+    <div className="w-full max-w-md text-foreground font-sans">
+      <div className="bg-white rounded-xl border border-border p-6 space-y-6 text-left">
         {/* Auth Toggle */}
-        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex space-x-1 bg-muted rounded-md p-1">
           <button
             onClick={() => setIsSignup(false)}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+            className={`flex-1 py-2 px-4 rounded-md text-sm transition-all duration-200 ${
               !isSignup
-                ? "bg-white text-black shadow-sm"
-                : "text-gray-600 hover:text-black"
+                ? "bg-white text-black shadow"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Sign In
           </button>
           <button
             onClick={() => setIsSignup(true)}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+            className={`flex-1 py-2 px-4 rounded-md text-sm transition-all duration-200 ${
               isSignup
-                ? "bg-white text-black shadow-sm"
-                : "text-gray-600 hover:text-black"
+                ? "bg-white text-black shadow"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Sign Up
@@ -57,7 +58,7 @@ export default function Login_Signup({
         {/* Google OAuth Button */}
         <button
           onClick={handleGoogleAuth}
-          className="w-full flex items-center justify-start space-x-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+          className="w-full flex items-center gap-3 px-4 py-3 border border-border rounded-md hover:bg-muted transition-colors justify-center"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -77,59 +78,52 @@ export default function Login_Signup({
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          <span className="text-black font-medium">Continue with Google</span>
+          <span className="text-sm">Continue with Google</span>
         </button>
 
         {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-border"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">OR</span>
+            <span className="px-2 bg-white text-muted-foreground">OR</span>
           </div>
         </div>
 
         {/* Email/Password Form */}
         <div className="space-y-4">
-          <div>
-            <input
-              type="email"
-              placeholder="Enter your personal or work email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all duration-200 text-black"
-            />
-          </div>
+          <input
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
+          />
 
-          <div>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all duration-200 text-black"
-            />
-          </div>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
+          />
 
           {isSignup && (
-            <div>
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all duration-200 text-black"
-              />
-            </div>
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
+            />
           )}
 
-          {/* Forgot Password Link - Only show for Sign In */}
           {!isSignup && (
             <div className="flex justify-end">
               <button
                 onClick={handleForgotPassword}
-                className="text-sm text-black hover:text-orange-500 transition-colors duration-200"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Forgot password?
               </button>
@@ -138,9 +132,9 @@ export default function Login_Signup({
 
           <button
             onClick={handleEmailLogin}
-            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 text-center"
+            className="w-full bg-black hover:bg-gray-900 text-white py-2 rounded-md text-sm transition-colors"
           >
-            {isSignup ? "Sign Up" : "Continue"}
+            {isSignup ? 'Sign Up' : 'Continue'}
           </button>
         </div>
       </div>
