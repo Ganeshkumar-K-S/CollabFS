@@ -22,6 +22,10 @@ export default function Login_Signup({
     }
   };
 
+  const handleForgotPassword = () => {
+    console.log("Forgot password clicked");
+  };
+
   return (
     <div className="w-full max-w-md sm:max-w-lg md:max-w-xl text-black">
 
@@ -120,9 +124,21 @@ export default function Login_Signup({
             </div>
           )}
 
+          {/* Forgot Password Link - Only show for Sign In */}
+          {!isSignup && (
+            <div className="flex justify-end">
+              <button
+                onClick={handleForgotPassword}
+                className="text-sm text-black hover:text-orange-500 transition-colors duration-200"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
           <button
             onClick={handleEmailLogin}
-            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 text-left"
+            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 text-center"
           >
             {isSignup ? "Sign Up" : "Continue"}
           </button>
