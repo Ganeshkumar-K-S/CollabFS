@@ -111,7 +111,7 @@ export default function ConfirmOTPForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Header */}
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold text-foreground">

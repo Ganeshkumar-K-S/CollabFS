@@ -2,7 +2,7 @@ import React from "react";
 
 export default function Divider() {
     return (
-        <div className="relative my-4">
+        <div className="relative my-4 font-sans">
             <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-border" />
             </div>

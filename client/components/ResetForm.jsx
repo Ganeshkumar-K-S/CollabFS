@@ -52,7 +52,7 @@ export default function ResetForm({
   const isFormValid = password && confirmPassword && password === confirmPassword && password.length >= 8;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Header */}
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold text-foreground">Reset Your Password</h2>
@@ -72,7 +72,7 @@ export default function ResetForm({
               placeholder="Enter new password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 pr-10 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
+              className="w-full font-sans px-4 py-2 pr-10 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
               disabled={isUpdating}
             />
             <button
@@ -107,7 +107,7 @@ export default function ResetForm({
               placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 pr-10 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
+              className="w-full font-sans px-4 py-2 pr-10 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
               disabled={isUpdating}
             />
             <button

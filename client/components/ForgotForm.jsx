@@ -74,7 +74,7 @@ export default function ForgotForm({
   // Final success state - OTP verified (optional, since we're navigating)
   if (isVerified) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 font-sans">
         {/* Success Header */}
         <div className="text-center space-y-2">
           <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -111,7 +111,7 @@ export default function ForgotForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={isSubmitted}
-            className={`w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm ${
+            className={`w-full font-sans px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm ${
               isSubmitted ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           />
