@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function GoogleIcon({ size = 5 }) {
+export default function GoogleIcon({ size = 6 }) {
     return (
         <svg className={`w-${size} h-${size}`} viewBox="0 0 24 24">
             <path
