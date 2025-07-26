@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React , {useState} from 'react';
 import { useRouter } from 'next/navigation';
-import GoogleIcon from './GoogleIcon'; // Adjust path as needed
-import Divider from './Divider'; // Adjust path as needed
+import GoogleIcon from './GoogleIcon'; 
+import Divider from './Divider'; 
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginForm({
   email,
@@ -13,6 +14,7 @@ export default function LoginForm({
   onForgotPassword
 }) {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleGoogleAuth = () => {
     console.log("Google OAuth2 login");
@@ -23,7 +25,7 @@ export default function LoginForm({
 
   const handleEmailLogin = () => {
     console.log("Login:", { email, password });
-    
+        
     // Add your login validation/API call here
     // For now, we'll simulate a successful login
     if (email && password) {
@@ -47,7 +49,7 @@ export default function LoginForm({
       {/* Google OAuth Button */}
       <button
         onClick={handleGoogleAuth}
-        className="w-full flex items-center gap-3 px-4 py-3 border border-border rounded-md hover:bg-muted transition-colors justify-center"
+        className="w-full flex items-center gap-3 px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors justify-center"
       >
         <GoogleIcon />
         <span className="text-sm">Continue with Google</span>
@@ -63,21 +65,35 @@ export default function LoginForm({
           placeholder="Enter your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full font-sans px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
+          className="w-full font-sans px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 text-sm"
         />
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full font-sans px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground text-sm"
-        />
+        {/* Password field with eye icon */}
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full font-sans px-4 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            {showPassword ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+          </button>
+        </div>
 
         <div className="flex justify-end">
           <button
             onClick={handleForgotPassword}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
           >
             Forgot password?
           </button>

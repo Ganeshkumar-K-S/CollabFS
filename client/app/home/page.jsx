@@ -9,7 +9,7 @@ const Page = () => {
     <div className="min-h-screen flex flex-col bg-[#fdfbf7]">
       <div className='flex justify-between items-center p-4'>
         <Header />
-        <ProfileDropdown userName={userName} />
+        <ProfileDropdown userName={userName} size={60} />
       </div>
     </div>
   )
