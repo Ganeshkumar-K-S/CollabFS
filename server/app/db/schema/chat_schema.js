@@ -13,12 +13,12 @@ db.createCollection(
                         description : "message must be of type string with max 1000 characters"
                     },
                     group_id : {
-                        bsonType : "objectId",
-                        description : "groupid must be of type objectId"
+                        bsonType : "string",
+                        description : "groupid must be of type string"
                     },
                     sender_id : {
-                        bsonType : "objectId",
-                        description : "sender_id must be of type objectId"
+                        bsonType : "string",
+                        description : "sender_id must be of type string"
                     },
                     timestamp : {
                         bsonType : "date",

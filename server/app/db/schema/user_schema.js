@@ -7,8 +7,8 @@ db.createCollection(
         required: ["_id", "name", "pwd", "createAt", "lastAccessed"],
         properties: {
           _id: {
-            bsonType: "objectId",
-            description: "id must be of type objectId"
+            bsonType: "string",
+            description: "id must be of type string"
           },
           name: {
             bsonType: "string",
