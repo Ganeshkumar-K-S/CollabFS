@@ -9,6 +9,7 @@ import Sidebar from '@/components/SideBar';
 import GroupsTable from '@/components/GroupsTable';
 import CustomTooltip from '@/components/CustomTooltip';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import logo from '@/assets/logo.svg'; 
 
 // Header Component
@@ -32,6 +33,7 @@ const DriveHomePage = () => {
   const [activeSection, setActiveSection] = useState('home');
   const [isMobile, setIsMobile] = useState(false);
   const userName = 'Harivansh B';
+  const router = useRouter();
 
   // Check screen size
   React.useEffect(() => {
@@ -43,6 +45,29 @@ const DriveHomePage = () => {
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  // Handle navigation
+  const handleSettingsClick = () => {
+    router.push('/profile');
+  };
+
+  const handleLogoutClick = () => {
+    router.push('/auth/login');
+  };
+
+  // Calculate profile picture size based on screen size
+  const getProfileSize = () => {
+    if (typeof window !== 'undefined') {
+      const width = window.innerWidth;
+      if (width < 640) return 28; // Mobile
+      if (width < 768) return 32; // Small tablet
+      if (width < 1024) return 36; // Tablet
+      return 40; // Desktop
+    }
+    return 40; // Default fallback
+  };
+
+  const profileSize = getProfileSize();
 
   return (
     <div className="min-h-screen bg-[#fdfbf7] overflow-x-hidden">
@@ -58,25 +83,36 @@ const DriveHomePage = () => {
             {!isMobile ? (
               <>
                 <CustomTooltip content="Settings">
-                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                  <button 
+                    onClick={handleSettingsClick}
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  >
                     <Settings className="h-5 w-5 text-gray-600" />
                   </button>
                 </CustomTooltip>
                 
                 <CustomTooltip content="Sign out">
-                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                  <button 
+                    onClick={handleLogoutClick}
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  >
                     <LogOut className="h-5 w-5 text-gray-600" />
                   </button>
                 </CustomTooltip>
                 
                 <CustomTooltip content={userName}>
                   <div>
-                    <ProfilePicture userName={userName} size={40} />
+                    <ProfilePicture userName={userName} size={profileSize} />
                   </div>
                 </CustomTooltip>
               </>
             ) : (
-              <ProfileDropdown userName={userName} size={28} />
+              <ProfileDropdown 
+                userName={userName} 
+                size={profileSize} 
+                onSettingsClick={handleSettingsClick}
+                onLogoutClick={handleLogoutClick}
+              />
             )}
           </div>
         </div>
