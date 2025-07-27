@@ -1,7 +1,7 @@
 import React from 'react'
 
 // ProfilePicture component (larger version for profile page)
-const ProfilePicture = ({ userName, size = 80}) => {
+const ProfilePicture = ({ userName, size = 40}) => {
   const getInitials = (name) => {
     if (!name) return '?';
         
