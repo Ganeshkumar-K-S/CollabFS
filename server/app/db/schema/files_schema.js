@@ -41,7 +41,7 @@ db.createCollection(
             description: "Size of the file in bytes (must be a positive integer)"
           },
           groupId: {
-            bsonType: "objectId",
+            bsonType: "string",
             description: "Reference ID to the group (or workspace/vault) this file belongs to"
           },
           pinned: {
