@@ -4,23 +4,23 @@ db.createCollection(
         validator : {
             $jsonSchema : {
                 bsonType : "object",
-                required : ["user_id","group_id","activity_type","file_id","timestamp"],
+                required : ["userId","groupId","activityType","fileId","timestamp"],
                 properties : {
-                    user_id : {
+                    userId : {
                         bsonType : "string",
-                        description : "user_id must be of type string"
+                        description : "userId must be of type string"
                     },
-                    group_id : {
+                    groupId : {
                         bsonType : "string",
-                        description : "group_id must be of type string"
+                        description : "groupId must be of type string"
                     },
-                    activity_type : {
+                    activityType : {
                         bsonType : "string",
                         description : "activity must be of type string"
                     },
-                    file_id : {
+                    fileId : {
                         bsonType : "objectId",
-                        description : "file_id must be of type objectid"
+                        description : "fileId must be of type objectid"
                     },
                     timestamp : {
                         bsonType : "date",

@@ -4,7 +4,7 @@ db.createCollection(
         validator : {
             $jsonSchema :{
                 bsonType : "object",
-                required : ["message","group_id","sender_id","timestamp"],
+                required : ["message","groupId","senderId","timestamp"],
                 properties : {
                     message : {
                         bsonType : "string",
@@ -12,13 +12,13 @@ db.createCollection(
                         maxLength : 1000,
                         description : "message must be of type string with max 1000 characters"
                     },
-                    group_id : {
+                    groupId : {
                         bsonType : "string",
                         description : "groupid must be of type string"
                     },
-                    sender_id : {
+                    senderId : {
                         bsonType : "string",
-                        description : "sender_id must be of type string"
+                        description : "senderId must be of type string"
                     },
                     timestamp : {
                         bsonType : "date",
