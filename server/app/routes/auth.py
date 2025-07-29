@@ -34,7 +34,7 @@ async def login_api(request:LoginModel):
     if not auth_util.verify_password(request.pwd,user.pwd):
             return {"success": False, "message": "Password does not match"}
 
-    token=auth_util.generate_token(user.id,user.name,user.email)
+    token=auth_util.generate_token({"id":user.id,"name":user.name,"email":user.email})
     
 
 
