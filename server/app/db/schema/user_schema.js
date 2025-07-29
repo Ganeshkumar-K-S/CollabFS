@@ -4,7 +4,7 @@ db.createCollection(
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["_id", "name", "pwd", "createAt", "lastAccessed"],
+        required: ["_id", "name", "pwd", "email", "createAt", "lastAccessed"],
         properties: {
           _id: {
             bsonType: "string",
@@ -17,6 +17,10 @@ db.createCollection(
           pwd: {
             bsonType: "string",
             description: "password must be of type string"
+          },
+          email : {
+            bsonType: "string",
+            description : "email must be of type string"
           },
           createAt: {
             bsonType: "date",
