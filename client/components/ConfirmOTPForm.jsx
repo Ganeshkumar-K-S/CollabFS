@@ -64,7 +64,7 @@ export default function ConfirmOTPForm({
         // Different redirect logic based on source
         if (isFromSignup) {
           // For signup, might redirect to onboarding or welcome page
-          router.push('/welcome');
+          router.push('/home');
         } else {
           // If not from signup, redirect back to signup
           router.push('/auth/signup');

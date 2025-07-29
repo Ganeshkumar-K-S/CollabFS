@@ -6,7 +6,7 @@ import ProfilePicture from '@/components/ProfilePicture';
 import ProfileDropdown from '@/components/ProfileDropDown';
 import SearchBar from '@/components/SearchBar';
 import Sidebar from '@/components/SideBar';
-import GroupsTable from '@/components/GroupsTable';
+import StorageGroup from '@/components/StorageGroup';
 import CustomTooltip from '@/components/CustomTooltip';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -28,9 +28,9 @@ const Header = ({ isSmall = false }) => {
   );
 };
 
-// Main Drive Home Page Component
-const HomePage = () => {
-  const [activeSection, setActiveSection] = useState('home');
+// Main Drive Storage Page Component
+const StoragePage = () => {
+  const [activeSection, setActiveSection] = useState('storage');
   const [isMobile, setIsMobile] = useState(false);
   const userName = 'Harivansh B';
   const router = useRouter();
@@ -138,11 +138,11 @@ const HomePage = () => {
           </div>
           
           {/* Groups Table */}
-          <GroupsTable isSmall={isMobile} />
+          <StorageGroup isSmall={isMobile} />
         </div>
       </div>
     </div>
   );
 };
 
-export default HomePage;
+export default StoragePage;

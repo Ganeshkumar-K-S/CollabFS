@@ -29,8 +29,8 @@ const Header = ({ isSmall = false }) => {
 };
 
 // Main Drive Home Page Component
-const HomePage = () => {
-  const [activeSection, setActiveSection] = useState('home');
+const StarredPage = () => {
+  const [activeSection, setActiveSection] = useState('starred');
   const [isMobile, setIsMobile] = useState(false);
   const userName = 'Harivansh B';
   const router = useRouter();
@@ -138,11 +138,11 @@ const HomePage = () => {
           </div>
           
           {/* Groups Table */}
-          <GroupsTable isSmall={isMobile} />
+          <GroupsTable isSmall={isMobile} starred={true} />
         </div>
       </div>
     </div>
   );
 };
 
-export default HomePage;
+export default StarredPage;

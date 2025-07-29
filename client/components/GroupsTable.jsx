@@ -5,7 +5,7 @@ import {MoreHorizontal, Folder, Clock, Users, StarIcon} from 'lucide-react';
 import CustomTooltip from '@/components/CustomTooltip';
 
 // Groups Table Component
-const GroupsTable = ({ isSmall = false }) => {
+const GroupsTable = ({ isSmall = false , starred = false}) => {
   const [groups, setGroups] = useState([
     {
       id: 1,
@@ -60,10 +60,15 @@ const GroupsTable = ({ isSmall = false }) => {
     ));
   };
 
+  // Filter groups based on starred prop
+  const filteredGroups = starred ? groups.filter(group => group.starred) : groups;
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
-        <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>My Groups</h3>
+        <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
+          {starred ? 'Starred Groups' : 'My Groups'}
+        </h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-full">
@@ -81,7 +86,7 @@ const GroupsTable = ({ isSmall = false }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {groups.map((group) => (
+            {filteredGroups.map((group) => (
               <tr key={group.id} className="hover:bg-gray-50 cursor-pointer">
                 <td className={`px-3 md:px-6 ${isSmall ? 'py-3' : 'py-4'} whitespace-nowrap`}>
                   <div className="flex items-center min-w-0">
