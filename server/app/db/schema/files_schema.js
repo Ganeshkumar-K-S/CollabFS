@@ -5,7 +5,6 @@ db.createCollection(
       $jsonSchema: {
         bsonType: "object",
         required: [
-          "_id",
           "name",
           "uploadedBy",
           "uploadedAt",
@@ -15,10 +14,6 @@ db.createCollection(
           "pinned"
         ],
         properties: {
-          _id: {
-            bsonType: "objectId",
-            description: "Unique identifier for the file document"
-          },
           name: {
             bsonType: "string",
             description: "Name of the uploaded file"

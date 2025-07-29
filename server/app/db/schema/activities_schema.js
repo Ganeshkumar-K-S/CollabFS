@@ -1,5 +1,5 @@
 db.createCollection(
-    "activites",
+    "activities",
     {
         validator : {
             $jsonSchema : {
