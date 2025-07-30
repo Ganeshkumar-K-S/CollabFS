@@ -23,11 +23,11 @@ db.createCollection(
             description : "email must be of type string"
           },
           createAt: {
-            bsonType: "date",
+            bsonType: "datetime",
             description: "createAt must be of type date"
           },
           lastAccessed: {
-            bsonType: "date",
+            bsonType: "datetime",
             description: "lastAccessed must be of type date"
           }
         }

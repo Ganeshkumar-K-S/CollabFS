@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status,Request,APIRouter
+from fastapi import FastAPI, Depends, HTTPException, status,Request,APIRouter,BackgroundTasks
 from pydantic import BaseModel
 from starlette.status import HTTP_403_FORBIDDEN
 from passlib.context import CryptContext
@@ -7,12 +7,38 @@ import app.utils.auth_util as auth_util
 from app.models.user_models import User
 from datetime import datetime,timezone
 import os
+from fastapi_mail import FastMail,MessageSchema,ConnectionConfig
+from app.db.connection import db
+from pathlib import Path
 
 file_engine = APIRouter(prefix="/auth")
 
+config= ConnectionConfig(
+    MAIL_USERNAME="CollabFS",
+    MAIL_PASSWORD= "qazwsx@123!?",
+    MAIL_FROM="collabfs1@gmail.com",
+    MAIL_PORT=587,
+    MAIL_SERVER="smtp.example.com",
+    MAIL_TLS=True,
+    MAIL_SSL=False,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True,
+    TEMPLATE_FOLDER=Path(__file__).resolve().parent.parent/"static"/"templates"
+)
+
 class LoginModel(BaseModel):
-    username:str
+    email:str
     pwd:str
+
+class SignupModel(BaseModel):
+    email:str
+    pwd:str
+    
+class Signup(BaseModel):
+    email:str
+    pwd:str
+    username:str
+    
 
 def verify_auth_api(request : Request):
     expected_key=os.getenv('AUTH_API_KEY')
@@ -24,31 +50,150 @@ def verify_auth_api(request : Request):
             detail="Unauthorized access"
         )
 
+@file_engine.post("/email/signup",dependencies=[Depends(verify_auth_api)])
+async def signup_api(request:SignupModel,otp):
+    try:
+        existing_user=await db.user.findone({"email":request.email})
+        if existing_user:
+            return {
+                "success":False,
+                "message":"User already found"
+                }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid user data"
+        )
+    return {
+            "success":True,
+            "session_details":{"email":request.email,
+                               "hashed_password":auth_util.get_password_hash(request.pwd)}
+            }
+     
+     
+@file_engine.post("email/signup/sendotp",dependencies=Depends[(verify_auth_api)])
+async def sendotp_api(email:str,background_tasks: BackgroundTasks):
+    otp=auth_util.generate_otp()
+    await db.otp_store.update_one(
+            {"email": email}, 
+            {
+                "$set": {
+                    "otp": otp,
+                    "createdAt": datetime.now(timezone.utc)
+                }
+            },
+            upsert=True
+        )
+    
+    message = MessageSchema(
+        subject="Your OTP Code",
+        recipients=[email],
+        template_body={"otp": otp},
+        subtype="html"
+    )
+    fm = FastMail(config)
+    background_tasks.add_task(fm.send_message, message, template_name="otp_template.html")
+    return {"message": "OTP sent successfully"}
+
+
+@file_engine.post("/email/getusername", dependencies=[Depends(verify_auth_api)])
+async def getusername_api(request: Signup, otp: str):
+    try:
+        otp_entry = await db.otp_store.find_one({"email": request.email, "otp": otp})
+        
+        if not otp_entry:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid OTP or email mismatch"
+            )
+        
+        expiry_minutes = 10
+        if (datetime.now(timezone.utc) - otp_entry["createdAt"]).total_seconds() > expiry_minutes * 60:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="OTP expired"
+            )
+
+        user_id = auth_util.generate_userid(request.username)
+        
+        await db.user.insert_one({
+            "_id": user_id,
+            "name": request.username,
+            "pwd": request.pwd,
+            "email": request.email,
+            "createdAt": datetime.now(timezone.utc),
+            "lastAccessed": datetime.now(timezone.utc)
+        })
+
+        token = auth_util.generate_token({
+            "id": user_id,
+            "name": request.username,
+            "email": request.email
+        })
+
+        session_credentials = {
+            "username": request.username,
+            "email": request.email
+        }
+
+        await db.otp_store.delete_one({"email": request.email, "otp": otp})
+
+        return {
+            "success": True,
+            "token": token,
+            "session_details": session_credentials
+        }
+
+    except HTTPException as he:
+        raise he
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"User registration failed: {str(e)}"
+        )
+
+
 @file_engine.post("/login",dependencies=[Depends(verify_auth_api)]) 
 async def login_api(request:LoginModel):
-    user_doc = await db.user.find_one({"name": request.username})
-    if not user_doc:
-        return {"success": False, "message": "User not found"}
+    try:       
+        user_doc = await db.user.find_one({"email": request.email})
+        if not user_doc:
+            return {
+                "success": False, 
+                "message": "User not found"
+                }    
+        user = User(**user_doc)
+        await db.user.update_one(
+        {"_id": user.id},
+        {"$set": {"lastAccessed": datetime.now(timezone.utc)}}
+        )
     
-    try:
-        user = User(**user_doc)   
+        if not auth_util.verify_password(request.pwd,user.pwd):
+            return {
+                  "success": False,
+                  "message": "Password does not match"
+                  }
+
+        token=auth_util.generate_token({"id":user.id,"name":user.name,"email":user.email})
+        session_credentials={
+            "username":user.name,
+            "email":user.email
+            }
+
+        return {   
+                "success":True,
+                "token":token,
+                "session_details":session_credentials
+            }
     except Exception as e:
          raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Invalid user data format"
         )
          
-    await db.user.update_one(
-        {"_id": user.id},
-        {"$set": {"lastAccessed": datetime.now(timezone.utc)}}
-    )
     
-    if not auth_util.verify_password(request.pwd,user.pwd):
-            return {"success": False, "message": "Password does not match"}
-
-    token=auth_util.generate_token({"id":user.id,"name":user.name,"email":user.email})
-
-    return token
     
 
 
