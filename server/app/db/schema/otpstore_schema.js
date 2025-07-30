@@ -15,7 +15,7 @@ db.createCollection(
             description: "OTP must be a string and is required"
           },
           createdAt: {
-            bsonType: "datetime",
+            bsonType: "date",
             description: "createdAt must be a datetime and is required"
           }
         }

@@ -11,6 +11,7 @@ from fastapi_mail import FastMail,MessageSchema,ConnectionConfig
 from app.db.connection import db
 from pathlib import Path
 from authlib.integrations.starlette_client import OAuth
+from starlette.config import Config
 
 file_engine = APIRouter(prefix="/auth")
 
@@ -28,6 +29,19 @@ config = ConnectionConfig(
 )
 
 oauth = OAuth()
+
+config = Config(environ=os.environ)
+oauth = OAuth(config)
+
+oauth.register(
+    name='google',
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 class LoginModel(BaseModel):
     email:str
