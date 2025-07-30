@@ -37,7 +37,7 @@ async def group_chat(websocket: WebSocket, group_id: str):
 
             chat_doc = {
                 "groupId": group_id,
-                "user": user,
+                "senderId": user,
                 "message": message,
                 "timestamp": datetime.now(timezone.utc)
             }
@@ -55,9 +55,9 @@ async def get_messages(group_id: str):
 
         return [
             {
-                "user": msg["user"],
-                "message": msg["message"],
-                "timestamp": msg["timestamp"]
+                "user": msg.get("senderId", "anonymous"),
+                "message": msg.get("message", ""),
+                "timestamp": msg.get("timestamp")
             }
             for msg in reversed(prev_messages)
         ]
