@@ -9,12 +9,16 @@ export default function ConfirmOTPForm({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [otp, setOtp] = useState('');
+  const [username, setUsername] = useState('');
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
   const [canResend, setCanResend] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [step, setStep] = useState('otp'); // 'otp' or 'username'
+  const [usernameError, setUsernameError] = useState('');
   
   // Check if coming from signup or login
-  const source = searchParams.get('from') || 'none'; // defaults to 'signup' if not specified
+  const source = searchParams.get('from') || 'none';
   const isFromSignup = source === 'signup';
 
   useEffect(() => {
@@ -25,15 +29,14 @@ export default function ConfirmOTPForm({
       }
   }, [searchParams, router]);
 
-
   useEffect(() => {
-    if (timeLeft > 0) {
+    if (timeLeft > 0 && step === 'otp') {
       const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timerId);
-    } else {
+    } else if (timeLeft === 0) {
       setCanResend(true);
     }
-  }, [timeLeft]);
+  }, [timeLeft, step]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -41,16 +44,14 @@ export default function ConfirmOTPForm({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleConfirm = async () => {
+  const handleConfirmOTP = async () => {
     console.log("Confirming OTP:", otp, "Source:", source);
     setIsVerifying(true);
     
     try {
-      // Add your OTP confirmation logic here
-      // You can use the 'source' variable to determine the API endpoint or flow
       const endpoint = isFromSignup ? '/api/verify-signup-otp' : '/api/verify-login-otp';
       
-      // Simulate API call
+      // Simulate OTP verification API call
       // const response = await fetch(endpoint, {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
@@ -59,16 +60,8 @@ export default function ConfirmOTPForm({
       
       setTimeout(() => {
         setIsVerifying(false);
-        console.log("OTP verified successfully, redirecting...");
-        
-        // Different redirect logic based on source
-        if (isFromSignup) {
-          // For signup, might redirect to onboarding or welcome page
-          router.push('/home');
-        } else {
-          // If not from signup, redirect back to signup
-          router.push('/auth/signup');
-        }
+        console.log("OTP verified successfully, proceeding to username selection...");
+        setStep('username'); // Move to username step
       }, 2000);
       
     } catch (error) {
@@ -78,13 +71,60 @@ export default function ConfirmOTPForm({
     }
   };
 
+  const validateUsername = (username) => {
+    if (username.length < 3) {
+      return 'Username must be at least 3 characters long';
+    }
+    if (username.length > 20) {
+      return 'Username must be less than 20 characters';
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+    return '';
+  };
+
+  const handleCompleteRegistration = async () => {
+    const error = validateUsername(username);
+    if (error) {
+      setUsernameError(error);
+      return;
+    }
+
+    console.log("Creating account with username:", username);
+    setIsCreatingAccount(true);
+    setUsernameError('');
+    
+    try {
+      // Complete account creation with username
+      const endpoint = '/api/complete-registration';
+      
+      // Simulate account creation API call
+      // const response = await fetch(endpoint, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ email, username, otp })
+      // });
+      
+      setTimeout(() => {
+        setIsCreatingAccount(false);
+        console.log("Account created successfully, redirecting...");
+        router.push('/home');
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Account creation failed:', error);
+      setIsCreatingAccount(false);
+      setUsernameError('Username may be taken. Please try another.');
+    }
+  };
+
   const handleResend = async () => {
     console.log("Resending OTP for signup");
     setTimeLeft(120);
     setCanResend(false);
     
     try {
-      // Resend signup OTP
       const endpoint = '/api/resend-signup-otp';
       
       // Add your OTP resend logic here
@@ -97,7 +137,6 @@ export default function ConfirmOTPForm({
       console.log('Signup OTP resent');
     } catch (error) {
       console.error('Failed to resend OTP:', error);
-      // Reset timer on error
       setTimeLeft(0);
       setCanResend(true);
     }
@@ -110,17 +149,102 @@ export default function ConfirmOTPForm({
     }
   };
 
+  const handleUsernameChange = (e) => {
+    const value = e.target.value.replace(/[^a-zA-Z0-9_]/g, ''); // Only allow letters, numbers, underscores
+    setUsername(value);
+    if (usernameError) {
+      setUsernameError(''); // Clear error when user starts typing
+    }
+  };
+
+  const handleBackToOTP = () => {
+    setStep('otp');
+    setUsername('');
+    setUsernameError('');
+  };
+
+  if (step === 'username') {
+    return (
+      <div className="space-y-6 font-sans">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-semibold text-foreground">
+            Choose Your Username
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Pick a unique username for your account
+          </p>
+          <p className="text-sm font-medium text-foreground">{email}</p>
+        </div>
+
+        {/* Username Input */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm text-foreground">Username</label>
+            <input
+              type="text"
+              placeholder="Enter username"
+              value={username}
+              onChange={handleUsernameChange}
+              className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground ${
+                usernameError ? 'border-red-500' : 'border-border'
+              }`}
+              maxLength={20}
+            />
+            {usernameError && (
+              <p className="text-sm text-red-500">{usernameError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              3-20 characters, letters, numbers, and underscores only
+            </p>
+          </div>
+
+          {/* Complete Registration Button */}
+          <button
+            onClick={handleCompleteRegistration}
+            disabled={username.length < 3 || isCreatingAccount}
+            className={`w-full py-2 rounded-md text-sm transition-colors flex items-center justify-center gap-2 ${
+              (username.length >= 3 && !isCreatingAccount)
+                ? "bg-black hover:bg-gray-900 text-white"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {isCreatingAccount ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating Account...
+              </>
+            ) : (
+              'Complete Registration'
+            )}
+          </button>
+
+          {/* Back Button */}
+          <button
+            onClick={handleBackToOTP}
+            className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Back to verification
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold text-foreground">
-          {isFromSignup ? 'Complete Your Registration' : 'Complete Your Registration'}
+          {isFromSignup ? 'Verify Your Email' : 'Verify Your Email'}
         </h2>
         <p className="text-sm text-muted-foreground">
           {isFromSignup 
-            ? "We've sent a 6-digit verification code to complete your account setup"
-            : "We've sent a 6-digit verification code to complete your account setup"
+            ? "We've sent a 6-digit verification code to your email"
+            : "We've sent a 6-digit verification code to your email"
           }
         </p>
         <p className="text-sm font-medium text-foreground">{email}</p>
@@ -158,9 +282,9 @@ export default function ConfirmOTPForm({
           </button>
         </div>
 
-        {/* Confirm Button */}
+        {/* Verify Button */}
         <button
-          onClick={handleConfirm}
+          onClick={handleConfirmOTP}
           disabled={otp.length !== 6 || isVerifying}
           className={`w-full py-2 rounded-md text-sm transition-colors flex items-center justify-center gap-2 ${
             (otp.length === 6 && !isVerifying)
@@ -174,10 +298,10 @@ export default function ConfirmOTPForm({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Creating Account...
+              Verifying...
             </>
           ) : (
-            'Complete Registration'
+            'Verify Code'
           )}
         </button>
       </div>
@@ -186,9 +310,6 @@ export default function ConfirmOTPForm({
       <div className="text-center">
         <p className="text-xs text-muted-foreground">
           Check your spam folder if you don't see the email
-        </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          Your account will be created once the code is verified
         </p>
       </div>
     </div>
