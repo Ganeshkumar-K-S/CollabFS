@@ -10,6 +10,7 @@ import os
 from fastapi_mail import FastMail,MessageSchema,ConnectionConfig
 from app.db.connection import db
 from pathlib import Path
+from authlib.integrations.starlette_client import OAuth
 
 file_engine = APIRouter(prefix="/auth")
 
@@ -25,6 +26,9 @@ config = ConnectionConfig(
     VALIDATE_CERTS=os.getenv("VALIDATE_CERTS") == "True",
     TEMPLATE_FOLDER=Path(__file__).resolve().parent.parent / os.getenv("TEMPLATE_FOLDER")
 )
+
+oauth = OAuth()
+
 class LoginModel(BaseModel):
     email:str
     pwd:str
@@ -191,8 +195,50 @@ async def login_api(request:LoginModel):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Invalid user data format"
         )
-         
-    
+
+
+@file_engine.get('/auth', dependencies=[Depends(verify_auth_api)])
+async def auth(request: Request):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = await oauth.google.parse_id_token(request, token)
+
+        email = user_info.get("email")
+        username = user_info.get("name")
+
+        user_doc = await db.user.find_one({"email": email})
+        if not user_doc:
+            user_id = auth_util.generate_userid(username)
+            await db.user.insert_one({
+                "_id": user_id,
+                "name": username,
+                "email": email,
+                "pwd": "",
+                "createdAt": datetime.now(timezone.utc),
+                "lastAccessed": datetime.now(timezone.utc)
+            })
+        else:
+            user_id = user_doc["_id"]
+            await db.user.update_one(
+                {"_id": user_id},
+                {"$set": {"lastAccessed": datetime.now(timezone.utc)}}
+            )
+
+        token = auth_util.generate_token({
+            "id": user_id,
+            "name": username,
+            "email": email
+        })
+
+        return token
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Google Auth Failed: {str(e)}"
+        )
+
+
     
 
 
