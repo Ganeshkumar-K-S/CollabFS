@@ -11,6 +11,7 @@ db.createCollection(
           "GridFSId",
           "size",
           "groupId",
+          "contentType",
           "pinned"
         ],
         properties: {
@@ -38,6 +39,10 @@ db.createCollection(
           groupId: {
             bsonType: "string",
             description: "Reference ID to the group (or workspace/vault) this file belongs to"
+          },
+          contentType:{
+            bsonType: "string",
+            description : "content type must be a string"
           },
           pinned: {
             bsonType: "bool",

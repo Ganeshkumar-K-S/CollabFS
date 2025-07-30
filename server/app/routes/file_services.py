@@ -1,6 +1,6 @@
 from app.db.connection import fs,db
 from app.db.collections import files,activities
-from fastapi import APIRouter, UploadFile, File, HTTPException,Request,Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException,Request,Depends,Form
 from app.models.file_model import File as FileModel
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 from datetime import datetime,timezone
@@ -23,11 +23,12 @@ def verify_file_api(request : Request):
         )
 
 @file_engine.post("/upload",dependencies=[Depends(verify_file_api)]) 
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(request : Request,
+                      file: UploadFile = File(...),
+                      contentType : str = Form(...)):
     try:
         contents = await file.read()
         file_id = await fs.upload_from_stream(file.filename, contents)
-
         file_data = {
             "name": f"{file.filename}",
             "uploadedBy": "anonymous",
@@ -35,6 +36,7 @@ async def upload_file(file: UploadFile = File(...)):
             "GridFSId" : file_id,
             "size" : Int64(len(contents)),
             "groupId": "tempgroup123",
+            "contentType":contentType,
             "pinned":False
         }
 
