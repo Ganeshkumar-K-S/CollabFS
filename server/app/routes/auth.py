@@ -70,8 +70,7 @@ async def signup_api(request:SignupModel,otp):
             "session_details":{"email":request.email,
                                "hashed_password":auth_util.get_password_hash(request.pwd)}
             }
-     
-     
+        
 @file_engine.post("email/signup/sendotp",dependencies=Depends[(verify_auth_api)])
 async def sendotp_api(email:str,background_tasks: BackgroundTasks):
     otp=auth_util.generate_otp()
@@ -85,11 +84,12 @@ async def sendotp_api(email:str,background_tasks: BackgroundTasks):
             },
             upsert=True
         )
+    now=datetime.now()
     
     message = MessageSchema(
         subject="Your OTP Code",
         recipients=[email],
-        template_body={"otp": otp},
+        template_body={"otp": otp,"purpose":"To complete your signup","date":now.strftime("%d-%B-%Y")},
         subtype="html"
     )
     fm = FastMail(config)
