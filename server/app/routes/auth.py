@@ -13,19 +13,18 @@ from pathlib import Path
 
 file_engine = APIRouter(prefix="/auth")
 
-config= ConnectionConfig(
-    MAIL_USERNAME="CollabFS",
-    MAIL_PASSWORD= "qazwsx@123!?",
-    MAIL_FROM="collabfs1@gmail.com",
-    MAIL_PORT=587,
-    MAIL_SERVER="smtp.example.com",
-    MAIL_TLS=True,
-    MAIL_SSL=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True,
-    TEMPLATE_FOLDER=Path(__file__).resolve().parent.parent/"static"/"templates"
+config = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_TLS=os.getenv("MAIL_TLS") == "True",
+    MAIL_SSL=os.getenv("MAIL_SSL") == "True",
+    USE_CREDENTIALS=os.getenv("USE_CREDENTIALS") == "True",
+    VALIDATE_CERTS=os.getenv("VALIDATE_CERTS") == "True",
+    TEMPLATE_FOLDER=Path(__file__).resolve().parent.parent / os.getenv("TEMPLATE_FOLDER")
 )
-
 class LoginModel(BaseModel):
     email:str
     pwd:str
@@ -51,7 +50,7 @@ def verify_auth_api(request : Request):
         )
 
 @file_engine.post("/email/signup",dependencies=[Depends(verify_auth_api)])
-async def signup_api(request:SignupModel,otp):
+async def signup_api(request:SignupModel):
     try:
         existing_user=await db.user.findone({"email":request.email})
         if existing_user:
