@@ -21,8 +21,8 @@ config = ConnectionConfig(
     MAIL_FROM=os.getenv("MAIL_FROM"),
     MAIL_PORT=int(os.getenv("MAIL_PORT")),
     MAIL_SERVER=os.getenv("MAIL_SERVER"),
-    MAIL_TLS=os.getenv("MAIL_TLS") == "True",
-    MAIL_SSL=os.getenv("MAIL_SSL") == "True",
+    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS") == "True",
+    MAIL_SSL_TLS=os.getenv("MAIL_SSL_TLS") == "True",
     USE_CREDENTIALS=os.getenv("USE_CREDENTIALS") == "True",
     VALIDATE_CERTS=os.getenv("VALIDATE_CERTS") == "True",
     TEMPLATE_FOLDER=Path(__file__).resolve().parent.parent / os.getenv("TEMPLATE_FOLDER")
@@ -88,7 +88,7 @@ async def signup_api(request:SignupModel):
                                "hashed_password":auth_util.get_password_hash(request.pwd)}
             }
         
-@file_engine.post("email/signup/sendotp",dependencies=Depends[(verify_auth_api)])
+@file_engine.post("email/signup/sendotp",dependencies=[Depends(verify_auth_api)])
 async def sendotp_api(email:str,background_tasks: BackgroundTasks):
     otp=auth_util.generate_otp()
     await db.otp_store.update_one(
@@ -251,8 +251,4 @@ async def auth(request: Request):
             status_code=400,
             detail=f"Google Auth Failed: {str(e)}"
         )
-
-
-    
-
 

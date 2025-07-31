@@ -1,5 +1,4 @@
 'use client';
-
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import LoginForm from './LoginForm';
@@ -7,11 +6,19 @@ import SignupForm from './SignupForm';
 import ForgotForm from './ForgotForm';
 import ResetForm from './ResetForm';
 import ConfirmOTPForm from './ConfirmOTPForm';
+import { useAuth } from './AuthWrapper'; // Import the auth context
 
 export default function AuthPage(props) {
   const router = useRouter();
+  const auth = useAuth(); // Use auth context instead of props
   const {
     type,
+    // Remove these from props since we're using context
+    // email, setEmail, password, setPassword, etc.
+  } = props;
+
+  // Get auth state from context
+  const {
     email,
     setEmail,
     password,
@@ -20,7 +27,7 @@ export default function AuthPage(props) {
     setConfirmPassword,
     isSignup,
     setIsSignup,
-  } = props;
+  } = auth;
 
   const handleSignInClick = () => {
     setIsSignup(false);
@@ -44,27 +51,28 @@ export default function AuthPage(props) {
   const showToggle = type === 'login' || type === 'signup';
 
   return (
-    <div className="w-full max-w-md text-foreground font-sans">
-      <div className="bg-white rounded-xl border border-border p-6 space-y-6 text-left">
+    <div className="w-full max-w-md mx-auto">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        
         {/* Auth Toggle - Only show for login/signup */}
         {showToggle && (
-          <div className="flex space-x-1 bg-muted rounded-md p-1">
+          <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
             <button
               onClick={handleSignInClick}
-              className={`flex-1 py-2 px-4 rounded-md text-sm transition-all duration-200 ${
-                type === 'login'
-                  ? "bg-white text-black shadow"
-                  : "text-muted-foreground hover:text-foreground"
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                !isSignup
+                  ? 'bg-white text-gray-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               Sign In
             </button>
             <button
               onClick={handleSignUpClick}
-              className={`flex-1 py-2 px-4 rounded-md text-sm transition-all duration-200 ${
-                type === 'signup'
-                  ? "bg-white text-black shadow"
-                  : "text-muted-foreground hover:text-foreground"
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                isSignup
+                  ? 'bg-white text-gray-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               Sign Up
@@ -74,7 +82,7 @@ export default function AuthPage(props) {
 
         {/* Render appropriate form based on type */}
         {type === 'login' && (
-          <LoginForm 
+          <LoginForm
             email={email}
             setEmail={setEmail}
             password={password}
@@ -82,7 +90,7 @@ export default function AuthPage(props) {
             onForgotPassword={handleForgotPasswordClick}
           />
         )}
-        
+
         {type === 'signup' && (
           <SignupForm
             email={email}
@@ -94,23 +102,25 @@ export default function AuthPage(props) {
             onConfirm={handleConfirmClick}
           />
         )}
-        
+
         {type === 'forgot' && (
-          <ForgotForm 
+          <ForgotForm
             email={email}
             setEmail={setEmail}
           />
         )}
-        
+
         {type === 'change' && (
-          <ResetForm 
+          <ResetForm
             password={password}
             setPassword={setPassword}
+            confirmPassword={confirmPassword}
+            setConfirmPassword={setConfirmPassword}
           />
         )}
-        
+
         {type === 'confirm' && (
-          <ConfirmOTPForm 
+          <ConfirmOTPForm
             email={email}
           />
         )}

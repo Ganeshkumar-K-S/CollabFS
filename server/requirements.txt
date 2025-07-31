@@ -9,3 +9,5 @@ passlib
 python-jose[cryptography]
 authlib
 fastapi_mail
+python-multipart
+httpx

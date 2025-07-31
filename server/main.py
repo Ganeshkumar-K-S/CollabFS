@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.connection import db
 from app.routes.file_services import file_engine
 from app.routes.chat_services import chat_engine
+from app.routes.auth import file_engine as auth_engine
 
 app = FastAPI()
 app.add_middleware(
@@ -24,3 +25,4 @@ async def list_collections():
 
 app.include_router(file_engine)
 app.include_router(chat_engine)
+app.include_router(auth_engine)

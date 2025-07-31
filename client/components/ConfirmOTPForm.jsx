@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { setUserData, setTempData, clearAllTempData, getTempData, updateUserField, clearTempData } from '../utils/localStorage'; // Adjust path as needed
 
 export default function ConfirmOTPForm({
   email
@@ -51,6 +52,11 @@ export default function ConfirmOTPForm({
     try {
       const endpoint = isFromSignup ? '/api/verify-signup-otp' : '/api/verify-login-otp';
       
+      // Store OTP verification status temporarily
+      setTempData('otpVerified', 'true');
+      setTempData('verifiedOtp', otp);
+      setTempData('verificationTimestamp', Date.now().toString());
+      
       // Simulate OTP verification API call
       // const response = await fetch(endpoint, {
       //   method: 'POST',
@@ -67,6 +73,10 @@ export default function ConfirmOTPForm({
     } catch (error) {
       console.error('OTP verification failed:', error);
       setIsVerifying(false);
+      // Clear temp data on error
+      clearTempData('otpVerified');
+      clearTempData('verifiedOtp');
+      clearTempData('verificationTimestamp');
       // Handle error (show toast, etc.)
     }
   };
@@ -99,16 +109,50 @@ export default function ConfirmOTPForm({
       // Complete account creation with username
       const endpoint = '/api/complete-registration';
       
+      // Get temporary verification data
+      const otpVerified = getTempData('otpVerified');
+      const verifiedOtp = getTempData('verifiedOtp');
+      
+      if (otpVerified !== 'true' || !verifiedOtp) {
+        throw new Error('OTP verification expired. Please verify again.');
+      }
+
+      // Get any existing signup data from temp storage
+      const signupEmail = getTempData('signupEmail');
+      const tempPassword = getTempData('tempPassword'); // If stored during signup
+      
       // Simulate account creation API call
       // const response = await fetch(endpoint, {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, username, otp })
+      //   body: JSON.stringify({ email, username, otp: verifiedOtp })
       // });
       
       setTimeout(() => {
+        // Store complete user data in localStorage
+        const userData = {
+          email: email,
+          username: username,
+          hashedPassword: getTempData('tempHashedPassword') || btoa('temp-password'), // Get from temp or generate
+          jwtToken: 'jwt-token-' + Date.now() // Mock JWT from API response
+        };
+
+        // Save user data permanently
+        setUserData(userData);
+
+        // Store additional temp data for post-registration flow
+        setTempData('registrationComplete', 'true');
+        setTempData('registrationTimestamp', Date.now().toString());
+
+        // Clear OTP-related temp data
+        clearTempData('otpVerified');
+        clearTempData('verifiedOtp');
+        clearTempData('verificationTimestamp');
+        clearTempData('tempPassword');
+        clearTempData('tempHashedPassword');
+
         setIsCreatingAccount(false);
-        console.log("Account created successfully, redirecting...");
+        console.log("Account created successfully, user data stored, redirecting...");
         router.push('/home');
       }, 2000);
       
@@ -116,6 +160,11 @@ export default function ConfirmOTPForm({
       console.error('Account creation failed:', error);
       setIsCreatingAccount(false);
       setUsernameError('Username may be taken. Please try another.');
+      
+      // Clear temp data on error
+      clearTempData('otpVerified');
+      clearTempData('verifiedOtp');
+      clearTempData('verificationTimestamp');
     }
   };
 
@@ -126,6 +175,14 @@ export default function ConfirmOTPForm({
     
     try {
       const endpoint = '/api/resend-signup-otp';
+      
+      // Clear previous OTP verification data
+      clearTempData('otpVerified');
+      clearTempData('verifiedOtp');
+      clearTempData('verificationTimestamp');
+      
+      // Store resend attempt
+      setTempData('lastOtpResend', Date.now().toString());
       
       // Add your OTP resend logic here
       // await fetch(endpoint, {
@@ -161,7 +218,16 @@ export default function ConfirmOTPForm({
     setStep('otp');
     setUsername('');
     setUsernameError('');
+    // Clear any username-related temp data
+    clearTempData('tempUsername');
   };
+
+  // Store username temporarily as user types (optional)
+  useEffect(() => {
+    if (username && step === 'username') {
+      setTempData('tempUsername', username);
+    }
+  }, [username, step]);
 
   if (step === 'username') {
     return (
