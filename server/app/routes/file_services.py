@@ -1,6 +1,8 @@
-from app.db.connection import fs,db
+from app.db.connection import get_db,get_fs
 from app.db.collections import files,activities
 from fastapi import APIRouter, UploadFile, File, HTTPException,Request,Depends,Form
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 from app.models.file_model import File as FileModel
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 from datetime import datetime,timezone
@@ -25,7 +27,10 @@ def verify_file_api(request : Request):
 @file_engine.post("/upload",dependencies=[Depends(verify_file_api)]) 
 async def upload_file(request : Request,
                       file: UploadFile = File(...),
-                      contentType : str = Form(...)):
+                      contentType : str = Form(...),
+                      db = Depends(get_db),
+                      fs = Depends(get_fs)
+                      ):
     try:
         contents = await file.read()
         file_id = await fs.upload_from_stream(file.filename, contents)
@@ -60,7 +65,11 @@ async def upload_file(request : Request,
 
 
 @file_engine.delete("/delete",dependencies=[Depends(verify_file_api)])
-async def delete_file(request: Request):
+async def delete_file(
+                    request: Request,
+                    db = Depends(get_db),
+                    fs = Depends(get_fs)
+                    ):
     try:
         data=await request.json()
         print(data)
@@ -91,3 +100,41 @@ async def delete_file(request: Request):
         return {"message":f"{file_id} file deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@file_engine.get("/download/{file_id}")
+async def download_file(
+                file_id,
+                request: Request,
+                db=Depends(get_db),
+                fs=Depends(get_fs)
+            ):
+    try:
+        file_data = await db.files.find_one({'_id': ObjectId(file_id)})
+
+        if file_data is None:
+            print("It is none")
+            raise HTTPException(status_code=404, detail="File data not found")
+
+        gridfs_id = file_data['GridFSId']
+        content_type = file_data['contentType']
+        print(file_data)
+        filename =file_data['name']
+        print(filename)
+
+        grid_out = await fs.open_download_stream(gridfs_id)
+        file_content = await grid_out.read()
+
+        return StreamingResponse(
+            BytesIO(file_content),
+            status_code=200,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    
+

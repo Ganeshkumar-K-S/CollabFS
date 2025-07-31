@@ -9,3 +9,10 @@ DB_NAME = os.getenv("MONGO_DB_NAME")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client[DB_NAME]
 fs=AsyncIOMotorGridFSBucket(db)
+
+
+def get_db():
+    return db
+
+def get_fs():
+    return fs

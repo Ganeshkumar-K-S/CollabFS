@@ -1,6 +1,6 @@
-from fastapi import WebSocket, WebSocketDisconnect, APIRouter, HTTPException
+from fastapi import WebSocket, WebSocketDisconnect, APIRouter, HTTPException, Depends
 import collections
-from app.db.connection import db
+from app.db.connection import get_db
 from datetime import datetime, timezone
 
 chat_engine = APIRouter(prefix="/chat")
@@ -23,7 +23,7 @@ class GroupConnectionManager:
 manager = GroupConnectionManager()
 
 @chat_engine.websocket("/ws/{group_id}")
-async def group_chat(websocket: WebSocket, group_id: str):
+async def group_chat(websocket: WebSocket, group_id: str,db = Depends(get_db)):
     await manager.connect(group_id, websocket)
 
     try:
@@ -48,7 +48,7 @@ async def group_chat(websocket: WebSocket, group_id: str):
         manager.disconnect(group_id, websocket)
 
 @chat_engine.get("/history/{group_id}")
-async def get_messages(group_id: str):
+async def get_messages(group_id: str,db = Depends(get_db)):
     try:
         cursor = db.chat.find({"groupId": group_id}).sort("timestamp", -1)
         prev_messages = await cursor.to_list(length=100)
