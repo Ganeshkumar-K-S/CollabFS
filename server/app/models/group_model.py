@@ -11,3 +11,7 @@ class Group(BaseModel):
 
     class Config:
         allow_population_by_field_name = True
+
+class GroupCreateModel(BaseModel):
+    user_id : str = Field(...,description="group creator id")
+    name : str = Field(...,description="name of the group")

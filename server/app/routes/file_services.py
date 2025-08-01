@@ -25,7 +25,7 @@ def verify_file_api(request : Request):
         )
 
 @file_engine.post("/upload",dependencies=[Depends(verify_file_api)]) 
-async def upload_file(request : Request,
+async def upload_file(
                       file: UploadFile = File(...),
                       contentType : str = Form(...),
                       db = Depends(get_db),
@@ -159,6 +159,42 @@ async def search_file(
         for doc in result
     ]
 
+
+@file_engine.get("/{group_id}",dependencies=[Depends(verify_file_api)])
+async def get_all_files(
+    group_id,
+    db=Depends(get_db)
+    ):
+
+    try:
+        cursor=db.files.find({"groupId" : f"{group_id}"})
+        if cursor is None:
+            return []
+        matchfiles=await cursor.to_list(length=None)
+
+        return [
+            {
+                "file_id" : str(doc["_id"]),
+                "name" : doc["name"],
+                "contentType" : doc["contentType"],
+                "size" : doc["size"],
+                "pinned" : doc["pinned"],
+                "uploadedAt" : doc["uploadedAt"],
+                "uploadedBy" : doc["uploadedBy"]
+            }
+            for doc in matchfiles
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+
+
+
+    
 
     
 
