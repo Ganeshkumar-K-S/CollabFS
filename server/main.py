@@ -7,14 +7,10 @@ from app.db.connection import db
 from app.routes.file_services import file_engine
 from app.routes.chat_services import chat_engine
 from app.routes.auth import file_engine as auth_engine
+import secrets
 
 app = FastAPI()
 
-# ✅ Add SessionMiddleware (required for request.session in OAuth2)
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET_KEY", "your-default-secret-key")
-)
 
 # ✅ CORS middleware
 app.add_middleware(
@@ -24,6 +20,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
 
 @app.get('/hello')
 def hello_world():

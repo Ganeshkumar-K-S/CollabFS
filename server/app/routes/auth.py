@@ -15,7 +15,7 @@ from starlette.config import Config
 
 file_engine = APIRouter(prefix="/auth")
 
-config = ConnectionConfig(
+mail_config = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
     MAIL_FROM=os.getenv("MAIL_FROM"),
@@ -29,18 +29,15 @@ config = ConnectionConfig(
 )
 
 oauth = OAuth()
-
 config = Config(environ=os.environ)
 oauth = OAuth(config)
 
 oauth.register(
     name='google',
-    client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    client_id="791201826131-0gdatqsmc0i8gdjghquh2o0o9huenopp.apps.googleusercontent.com",
+    client_secret='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',
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
+    client_kwargs={'scope': 'openid email profile'},
 )
 
 class LoginModel(BaseModel):
@@ -109,7 +106,7 @@ async def sendotp_api(email:str,background_tasks: BackgroundTasks):
         template_body={"otp": otp,"purpose":"To complete your signup","date":now.strftime("%d-%B-%Y")},
         subtype="html"
     )
-    fm = FastMail(config)
+    fm = FastMail(mail_config)
     background_tasks.add_task(fm.send_message, message, template_name="otp_template.html")
     return {"message": "OTP sent successfully"}
 
@@ -215,7 +212,10 @@ async def login_api(request:LoginModel):
 async def auth(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
-        user_info = await oauth.google.parse_id_token(request, token)
+        print("Token:",token)
+        user_info = token.get("userinfo")
+        if not user_info:
+            raise HTTPException(status_code=400, detail="User info not found in token")
 
         email = user_info.get("email")
         username = user_info.get("name")
