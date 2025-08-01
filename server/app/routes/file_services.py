@@ -134,7 +134,10 @@ async def download_file(
         )
 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
+    
+@file_engine.get('/search/{filename}')
 
     
 
