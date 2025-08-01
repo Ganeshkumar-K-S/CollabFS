@@ -172,7 +172,7 @@ async def getusername_api(request: Signup, otp: str):
         )
 
 
-@file_engine.post("/login",dependencies=[Depends(verify_auth_api)]) 
+@file_engine.post("email/login",dependencies=[Depends(verify_auth_api)]) 
 async def login_api(request:LoginModel):
     try:       
         user_doc = await db.user.find_one({"email": request.email})
@@ -211,7 +211,7 @@ async def login_api(request:LoginModel):
         )
 
 
-@file_engine.get('/auth', dependencies=[Depends(verify_auth_api)])
+@file_engine.get('/auth')
 async def auth(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
@@ -252,3 +252,7 @@ async def auth(request: Request):
             detail=f"Google Auth Failed: {str(e)}"
         )
 
+@file_engine.get("/login")
+async def login_via_google(request: Request):
+    redirect_uri = str(request.url_for("auth"))
+    return await oauth.google.authorize_redirect(request, redirect_uri)

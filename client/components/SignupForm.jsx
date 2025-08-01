@@ -24,47 +24,11 @@ export default function SignupForm({
   const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
   const API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY;
 
-  const handleGoogleAuth = async () => {
-    console.log("Google OAuth2 signup");
-    setIsLoading(true);
-    setError('');
-
-    try {
-      // First, make a pre-request to get the actual Google OAuth URL (optional)
-      const backendUrl = process.env.NEXT_PUBLIC_AUTH_BACKEND_URL;
-
-      const response = await fetch(`${backendUrl}/auth`, {
-        method: 'GET',
-        headers: {
-          'x-api-key': process.env.NEXT_PUBLIC_AUTH_API_KEY || '',
-        },
-        redirect: 'manual' // Prevent auto-redirect
-      });
-
-      if (response.status === 307 || response.status === 302) {
-        const redirectUrl = response.headers.get('Location');
-        if (redirectUrl) {
-          window.location.href = redirectUrl;
-          return;
-        } else {
-          throw new Error('Redirect URL not found');
-        }
-      } else if (response.ok) {
-        // If backend directly returns the token
-        const token = await response.text();
-        console.log("Received token:", token);
-      } else {
-        const errText = await response.text();
-        throw new Error(errText);
-      }
-
-    } catch (err) {
-      console.error("Google auth error:", err);
-      setError("Google authentication failed. Please try again.");
-      setIsLoading(false);
-    }
+  const handleGoogleAuth = () => {
+    // Redirect to backend to start OAuth2 flow
+    const redirectUrl = `${API_BASE_URL}/auth/login`;
+    window.location.href = redirectUrl;
   };
-
 
   const handleSignup = async () => {
     if (password !== confirmPassword) {
