@@ -220,15 +220,17 @@ async def auth(request: Request):
         email = user_info.get("email")
         username = user_info.get("name")
 
+
         user_doc = await db.user.find_one({"email": email})
-        if not user_doc:
-            user_id = auth_util.generate_userid(username)
+        if user_doc is None:
+            user_id = await auth_util.generate_userid(username,db)
+            print(user_id)
             await db.user.insert_one({
                 "_id": user_id,
                 "name": username,
                 "email": email,
                 "pwd": "",
-                "createdAt": datetime.now(timezone.utc),
+                "createAt": datetime.now(timezone.utc),
                 "lastAccessed": datetime.now(timezone.utc)
             })
         else:

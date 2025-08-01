@@ -10,14 +10,18 @@ load_dotenv()
 
 bcrypt_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
 
-def generate_userid(username:str):
-    base=username.lower().replace(" ","_")
+import random
+
+async def generate_userid(username: str, db):
+    base = username.lower().replace(" ", "_")
 
     while True:
-        random_number=str(random.randint(10000,99999))
-        tempname=base+random_number
-        if not db.users.find_one({"_id":tempname}):
+        random_number = str(random.randint(10000, 99999))
+        tempname = base + random_number
+        existing = await db.user.find_one({"_id": tempname})
+        if not existing:
             return tempname
+
 
 def verify_password(plain_pwd, hashed_pwd):
     return bcrypt_context.verify(plain_pwd, hashed_pwd)
