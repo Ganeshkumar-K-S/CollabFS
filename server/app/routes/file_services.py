@@ -136,8 +136,29 @@ async def download_file(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
-    
-@file_engine.get('/search/{filename}')
+
+@file_engine.get("/search/{filename}",dependencies=[Depends(verify_file_api)])
+async def search_file(
+    filename,
+    db=Depends(get_db)
+    ):
+
+    match=db.files.find({
+        "name" : {
+            "$regex" : f"{filename}",
+            "$options" : "i"
+        }
+    })
+
+    result=await match.to_list(length=None)
+    return [
+        {
+            "file_id":str(doc["_id"]),
+            "name":doc["name"]
+        }
+        for doc in result
+    ]
+
 
     
 
