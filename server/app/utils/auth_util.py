@@ -5,7 +5,10 @@ from jose import JWTError, jwt
 from dotenv import load_dotenv
 import os
 from datetime import datetime,timezone,timedelta
-
+from fastapi import HTTPException
+import typing
+from app.db.collections import groupmembers
+from motor.motor_asyncio import AsyncIOMotorDatabase
 load_dotenv()
 
 bcrypt_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
@@ -49,3 +52,22 @@ def verify_token(token:str):
 
 def generate_otp():
     return str(random.randint(100000, 999999))
+
+async def verify_role(
+        user_id : str,
+        group_id : str,
+        roles : set,
+):
+    member_data = await db.groupmembers.find_one( 
+        {
+            "userId":user_id,
+            "groupId":group_id }
+    )
+
+    if member_data.get("role") not in roles:
+        raise HTTPException(
+            status_code=403,
+            detail="unauthorized access to action"
+        )
+    else:
+        return True

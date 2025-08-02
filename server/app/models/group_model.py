@@ -13,5 +13,11 @@ class Group(BaseModel):
         allow_population_by_field_name = True
 
 class GroupCreateModel(BaseModel):
-    user_id : str = Field(...,description="group creator id")
+    userId : str = Field(...,description="group creator id")
     name : str = Field(...,description="name of the group")
+
+class GroupModifyModel(BaseModel): 
+    userId : str = Field(...,description="group creator id")
+    groupId : str = Field(...,description="group id that should be renamed")
+    newContent : str = Field(...,description="new name of the group")
+    

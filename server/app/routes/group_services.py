@@ -3,7 +3,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
 from app.db.connection import get_db 
 from app.db.collections import group, groupmembers, activities 
-from app.models.group_model import GroupCreateModel
+from app.models.group_model import GroupCreateModel, GroupModifyModel
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime, timezone
 import uuid
@@ -14,7 +14,7 @@ load_dotenv()
 group_engine = APIRouter(prefix="/group")
 
 
-def verify_file_api(request: Request):
+def verify_group_api(request: Request):
     expected_key = os.getenv('GROUP_API_KEY')
     key_name = "x-api-key"
     response_key = request.headers.get(key_name)
@@ -25,7 +25,7 @@ def verify_file_api(request: Request):
         )
 
 
-@group_engine.post("/create", dependencies=[Depends(verify_file_api)])
+@group_engine.post("/create", dependencies=[Depends(verify_group_api)])
 async def create_group(
     create_data: GroupCreateModel,
     db: AsyncIOMotorDatabase = Depends(get_db)
@@ -78,3 +78,69 @@ async def create_group(
 
     finally:
         await session.end_session()
+
+@group_engine.patch("/rename",dependencies=[Depends(verify_group_api)])
+async def rename_group(
+        rename_data : GroupModifyModel,
+        db : AsyncIOMotorDatabase = Depends(get_db)
+):
+        async with await db.client.start_session() as session:
+             async with session.start_transaction():
+                try:
+                    await db.group.update_one(
+                        {
+                            "_id":rename_data.groupId
+                        },
+                        {
+                            "$set" :{
+                                "gname":rename_data.newContent
+                            }
+                        }
+                    )
+
+                    activity_data={
+                        "userId" : rename_data.userId,
+                        "groupId" : rename_data.groupId,
+                        "activityType" : "GROUP_RENAMED",
+                        "fileId" : None,
+                        "timestamp":datetime.now(timezone.utc)
+                    }
+
+                    await db.activities.insert_one(activity_data)
+
+                    return {"message":"group name changed successfully"}
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=str(e))
+
+@group_engine.patch("/description",dependencies=[Depends(verify_group_api)])
+async def description_change(
+        rename_data : GroupModifyModel,
+        db : AsyncIOMotorDatabase = Depends(get_db)
+):
+        async with await db.client.start_session() as session:
+             async with session.start_transaction():
+                try:
+                    await db.group.update_one(
+                        {
+                            "_id":rename_data.groupId
+                        },
+                        {
+                            "$set" :{
+                                "description":rename_data.newContent
+                            }
+                        }
+                    )
+
+                    activity_data={
+                        "userId" : rename_data.userId,
+                        "groupId" : rename_data.groupId,
+                        "activityType" : "GROUP_DESCRIPTION_CHANGE",
+                        "fileId" : None,
+                        "timestamp":datetime.now(timezone.utc)
+                    }
+
+                    await db.activities.insert_one(activity_data)
+
+                    return {"message":"group description changed successfully"}
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=str(e))

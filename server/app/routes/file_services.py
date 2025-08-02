@@ -10,11 +10,12 @@ from bson import ObjectId, Int64
 from dotenv import load_dotenv
 load_dotenv()
 import os
+from app.utils.auth_util import verify_role
 
 file_engine = APIRouter(prefix="/file")
 
 def verify_file_api(request : Request):
-    expected_key=os.getenv('FILE_API_KEY')
+    expected_key=os.getenv('GROUP_API_KEY')
     key_name="x-api-key"
     response_key=request.headers.get(key_name)
     if expected_key!=response_key:
@@ -27,9 +28,12 @@ def verify_file_api(request : Request):
 async def upload_file(
     file: UploadFile = File(...),
     contentType: str = Form(...),
+    userId : str = Form(...),
+    groupId : str = Form(...),
     db = Depends(get_db),
     fs = Depends(get_fs)
 ):
+    await verify_role(user_id=userId, group_id=groupId, roles={"Owner","Admin","Editor"})
     async with await db.client.start_session() as session:
         async with session.start_transaction():
             try:
@@ -72,6 +76,7 @@ async def delete_file(
     db=Depends(get_db),
     fs=Depends(get_fs)
 ):
+
     async with await db.client.start_session() as session:
         async with session.start_transaction():
             try:
@@ -85,13 +90,17 @@ async def delete_file(
                 if not filedata or not filedata.get("GridFSId"):
                     raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="File not found")
 
-                # Delete from GridFS
+                await verify_role(
+                    user_id=data.userId,
+                    group_id=filedata["groupId"],
+                    roles={"Owner","Admin","Editor"},
+                    db=db
+                )
+
                 await fs.delete(filedata["GridFSId"])
 
-                # Delete metadata
                 await db.files.delete_one({"_id": ObjectId(file_id)}, session=session)
 
-                # Record delete activity
                 activity_data = {
                     "userId": data.userId,
                     "groupId": filedata["groupId"],
@@ -120,6 +129,13 @@ async def download_file(
 
         if file_data is None:
             raise HTTPException(status_code=404, detail="File data not found")
+        
+        await verify_role(
+                    user_id=data.userId,
+                    group_id=file_data["groupId"],
+                    roles={"Owner","Admin","Editor","Viewer"},
+                    db=db
+                )
 
         gridfs_id = file_data['GridFSId']
         content_type = file_data['contentType']
