@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState , useEffect} from 'react';
 import { useRouter } from 'next/navigation';
 import GoogleIcon from './GoogleIcon';
 import Divider from './Divider';
@@ -27,28 +27,16 @@ export default function LoginForm({
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY;
 
-  const handleGoogleAuth = () => {
-    const query = new URLSearchParams(window.location.search);
-    const token = query.get('token');
-    const name = query.get('name');
-    const email = query.get('email');
+   // Check if user is already logged in on component mount
+    useEffect(() => {
+      if (isUserLoggedIn()) {
+        console.log('User already logged in, redirecting to home');
+        router.push('/home');
+      }
+    }, [router]);
 
-    if (token && name && email) {
-      // Use localStorage utility to store user data
-      const userData = {
-        email: email,
-        username: name, // Using name as username for Google auth
-        jwtToken: token
-      };
-      
-      setUserData(userData);
-      updateUserData(userData);
-      
-      window.location.href = '/home'; // Redirect to home
-    } else {
-      // Start login redirect flow
-      window.location.href = `${API_BASE_URL}/auth/login`;
-    }
+  const handleGoogleAuth = () => {
+    window.location.href = `${API_BASE_URL}/auth/login`;
   };
 
   const handleEmailLogin = async () => {

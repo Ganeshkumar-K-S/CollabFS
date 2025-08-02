@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState , useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import GoogleIcon from './GoogleIcon'; // Adjust path as needed
 import Divider from './Divider'; // Adjust path as needed
-import { setUserData, setTempData, clearUserData, clearAllTempData } from '@/utils/localStorage';
+import { isUserLoggedIn , setTempData, clearAllTempData } from '@/utils/localStorage';
+import { useRouter } from 'next/navigation';
 
 export default function SignupForm({
   email,
@@ -21,51 +22,21 @@ export default function SignupForm({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
+  const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
   const API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY;
 
-  const handleGoogleAuth = async () => {
-    console.log("Google OAuth2 signup");
-    setIsLoading(true);
-    setError('');
-
-    try {
-      // First, make a pre-request to get the actual Google OAuth URL (optional)
-      const backendUrl = process.env.NEXT_PUBLIC_AUTH_BACKEND_URL;
-
-      const response = await fetch(`${backendUrl}/auth`, {
-        method: 'GET',
-        headers: {
-          'x-api-key': process.env.NEXT_PUBLIC_AUTH_API_KEY || '',
-        },
-        redirect: 'manual' // Prevent auto-redirect
-      });
-
-      if (response.status === 307 || response.status === 302) {
-        const redirectUrl = response.headers.get('Location');
-        if (redirectUrl) {
-          window.location.href = redirectUrl;
-          return;
-        } else {
-          throw new Error('Redirect URL not found');
-        }
-      } else if (response.ok) {
-        // If backend directly returns the token
-        const token = await response.text();
-        console.log("Received token:", token);
-      } else {
-        const errText = await response.text();
-        throw new Error(errText);
-      }
-
-    } catch (err) {
-      console.error("Google auth error:", err);
-      setError("Google authentication failed. Please try again.");
-      setIsLoading(false);
+  // Check if user is already logged in on component mount
+  useEffect(() => {
+    if (isUserLoggedIn()) {
+      console.log('User already logged in, redirecting to home');
+      router.push('/home');
     }
-  };
+  }, [router]);
 
+  const handleGoogleAuth = () => {
+    window.location.href = `${API_BASE_URL}/auth/login`;
+  };
 
   const handleSignup = async () => {
     // Clear any existing temporary data
