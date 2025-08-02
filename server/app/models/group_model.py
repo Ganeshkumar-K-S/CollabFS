@@ -20,4 +20,8 @@ class GroupModifyModel(BaseModel):
     userId : str = Field(...,description="group creator id")
     groupId : str = Field(...,description="group id that should be renamed")
     newContent : str = Field(...,description="new name of the group")
+
+class GroupSearchModel(BaseModel):
+    userId : str = Field(...,description="user id")
+    searchstr : str = Field("",description="string to be searched")
     

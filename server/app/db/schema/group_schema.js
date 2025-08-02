@@ -4,7 +4,7 @@ db.createCollection(
         validator : {
             $jsonSchema :{
                 bsonType:"object",
-                required:["_id","gname","description","createdBy","createdAt","starred"],
+                required:["_id","gname","description","createdBy","createdAt"],
                 properties:{
                     _id:{
                         bsonType: "string",
@@ -27,12 +27,7 @@ db.createCollection(
                     createdAt: {
                         bsonType: "date",
                         description: "createAt must be of type date"
-                    } ,
-                    starred:{
-                        bsonType:"bool",
-                        description:"starred must be bool"
                     }
-
                 }
             }
         },

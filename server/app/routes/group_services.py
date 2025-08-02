@@ -3,11 +3,13 @@ from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
 from app.db.connection import get_db 
 from app.db.collections import group, groupmembers, activities 
-from app.models.group_model import GroupCreateModel, GroupModifyModel
+from app.models.group_model import GroupCreateModel, GroupModifyModel, GroupSearchModel
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime, timezone
+from bson import ObjectId
 import uuid
 import os
+from app.utils.group_utils import time_ago
 
 load_dotenv()
 
@@ -144,3 +146,96 @@ async def description_change(
                     return {"message":"group description changed successfully"}
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@group_engine.get("/search/{user_id}/{name}", dependencies=[Depends(verify_group_api)])
+async def search(
+    user_id: str,
+    name: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    try:
+        async with await db.client.start_session() as session:
+            async with session.start_transaction():
+                try:
+                    if name=="__empty__":
+                        name=""
+                    cursor=db.groupmembers.aggregate(
+                         [
+                            {
+                                "$match" : {
+                                     "userId":user_id
+                                }
+                            },
+                            {
+                                "$lookup" : {
+                                     "from" : "group",
+                                     "localField" : "groupId",
+                                     "foreignField" : "_id",
+                                     "as" : "rightj"
+                                }
+                            },
+                            {
+                                "$unwind": "$rightj"
+                            },
+                            {
+                                 "$match": {
+                                      "rightj.gname" :{
+                                           "$regex" : name,
+                                           "$options" : "i"
+                                      }
+                                 }
+                            }
+                         ]
+                    )
+
+                    result=await cursor.to_list(length=None)
+                    response=[]
+
+                    for doc in result:
+                        group_id=doc["groupId"]
+                        role=doc["role"]
+                        gname=doc["rightj"]["gname"]
+                        
+                        latest_cursor = db.activities.find(
+                            {"groupId": group_id},
+                            sort=[("timestamp", -1)],
+                            limit=1
+                        )
+
+                        latest_list = await latest_cursor.to_list(length=1)
+                        latest_date = latest_list[0]["timestamp"] if latest_list else None
+
+
+                        lastmod=time_ago(latest_date)
+
+                        starred = await db.starred.find_one({
+                            "userId":user_id,
+                            "groupId":group_id
+                        }) is not None
+
+                        response.append(
+                             {
+                                "groupId":group_id,
+                                "groupName":gname,
+                                "role":role,
+                                "lastModified":lastmod,
+                                "starred":starred
+                             }
+                        )
+                    return response
+                        
+                except Exception as e:
+                     print(e)
+                     raise HTTPException(
+                          status_code=500,
+                          detail=str(e)
+                     )
+
+    except Exception as e:
+            print(e)
+            raise HTTPException(
+                status_code=500,
+                detail=str(e)
+            )
