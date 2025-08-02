@@ -40,7 +40,6 @@ export default function LoginForm({
   };
 
   const handleEmailLogin = async () => {
-    console.log("Login:", { email, password });
     setIsLoading(true);
     setError('');
     
@@ -62,7 +61,7 @@ export default function LoginForm({
       }
       
       // Call login API
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/email/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,6 +86,7 @@ export default function LoginForm({
       // Prepare user data for storage
       const userData = {
         email: data.session_details.email,
+        id: data.session_details.id,
         username: data.session_details.username,
         jwtToken: data.token
       };

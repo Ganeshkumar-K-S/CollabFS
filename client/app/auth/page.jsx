@@ -25,7 +25,8 @@ export default function Page() {
                 setUserData({
                     userEmail: email,
                     username: username,
-                    jwtToken: token,
+                    jwtToken: decoded,
+                    id: decoded.id
                 });
 
                 // Clean up URL

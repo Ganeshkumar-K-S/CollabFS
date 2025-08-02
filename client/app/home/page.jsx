@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import {Settings, LogOut } from 'lucide-react';
+import {Settings, LogOut} from 'lucide-react';
 import ProfilePicture from '@/components/ProfilePicture';
 import ProfileDropdown from '@/components/ProfileDropDown';
 import SearchBar from '@/components/SearchBar';
 import Sidebar from '@/components/SideBar';
 import GroupsTable from '@/components/GroupsTable';
 import CustomTooltip from '@/components/CustomTooltip';
+import GroupDailog from '@/components/GroupDailog';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import logo from '@/assets/logo.svg'; 
@@ -31,8 +32,12 @@ const Header = ({ isSmall = false }) => {
 
 // Main Drive Home Page Component
 const HomePage = () => {
+  const [groups , setGroups] = useState([]); // State to hold groups
   const [activeSection, setActiveSection] = useState('home');
   const [isMobile, setIsMobile] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupDescription, setGroupDescription] = useState('');
   const userName = 'Harivansh B';
   const router = useRouter();
 
@@ -55,6 +60,34 @@ const HomePage = () => {
   const handleLogoutClick = () => {
       clearUserData();              
       router.push('/auth/login');
+  };
+
+  // Handle group creation
+  const handleCreateGroup = () => {
+    if (groupName.trim()) {
+      const newGroup = {
+        id: Date.now(), // Simple ID generation
+        name: groupName.trim(),
+        description: groupDescription.trim(),
+        members: 1, // Default to 1 member (creator)
+        files: 0, // Default to 0 files
+        created: new Date().toLocaleDateString(),
+      };
+      
+      setGroups(prevGroups => [...prevGroups, newGroup]);
+      
+      // Reset form and close dialog
+      setGroupName('');
+      setGroupDescription('');
+      setIsDialogOpen(false);
+    }
+  };
+
+  // Handle dialog close
+  const handleDialogClose = () => {
+    setGroupName('');
+    setGroupDescription('');
+    setIsDialogOpen(false);
   };
 
   // Calculate profile picture size based on screen size
@@ -130,7 +163,7 @@ const HomePage = () => {
         <div className={`flex-1 min-w-0 ${isMobile ? 'p-4' : 'p-8'} bg-[#fdfbf7]`}>
           {/* Search Bar */}
           <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
-            <SearchBar isSmall={isMobile} />
+            <SearchBar isSmall={isMobile} groups={groups} setGroups={setGroups} />
           </div>
           
           {/* Welcome Section */}
@@ -140,9 +173,20 @@ const HomePage = () => {
           </div>
           
           {/* Groups Table */}
-          <GroupsTable isSmall={isMobile} />
+          <GroupsTable isSmall={isMobile} groups={groups}/>
         </div>
       </div>
+
+      <GroupDailog 
+        isDialogOpen={isDialogOpen}
+        setIsDialogOpen={setIsDialogOpen}
+        groupName={groupName}
+        setGroupName={setGroupName}
+        groupDescription={groupDescription}
+        setGroupDescription={setGroupDescription}
+        handleCreateGroup={handleCreateGroup}
+        handleDialogClose={handleDialogClose}
+      />
     </div>
   );
 };

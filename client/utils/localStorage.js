@@ -6,13 +6,9 @@ export const setUserData = (userData) => {
         if (userData.username) localStorage.setItem('username', userData.username)
         if (userData.hashedPassword) localStorage.setItem('hashedPassword', userData.hashedPassword)
         if (userData.jwtToken) localStorage.setItem('jwtToken', userData.jwtToken)
-        
-        console.log('User data saved to localStorage:', {
-            email: userData.email,
-            username: userData.username,
-            hasToken: !!userData.jwtToken,
-            hashedPassword: !!userData.hashedPassword
-        });
+        if(userData.id) localStorage.setItem('userId', userData.id);
+
+        console.log('User data saved to localStorage:', userData);
     } catch (error) {
         console.error('Failed to save user data to localStorage:', error);
     }
@@ -24,7 +20,8 @@ export const getUserData = () => {
             email: localStorage.getItem('userEmail') || '',
             username: localStorage.getItem('username') || '',
             hashedPassword: localStorage.getItem('hashedPassword') || '',
-            jwtToken: localStorage.getItem('jwtToken') || ''
+            jwtToken: localStorage.getItem('jwtToken') || '',
+            id: localStorage.getItem('userId') || ''
         }
     } catch (error) {
         console.error('Failed to get user data from localStorage:', error);

@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Home, Star, HardDrive } from 'lucide-react';
@@ -43,8 +44,8 @@ const Sidebar = ({ activeSection, setActiveSection, isCollapsed = false }) => {
                 <button
                   onClick={() => handleNavigation(item)}
                   className={`w-full flex items-center ${isCollapsed ? 'justify-center px-1 md:px-2' : 'px-2 md:px-4'} py-2 text-sm font-medium rounded-lg transition-colors ${
-                    currentActive === item.id 
-                      ? 'bg-orange-50 text-orange-700' 
+                    currentActive === item.id
+                      ? 'bg-orange-50 text-orange-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -56,7 +57,7 @@ const Sidebar = ({ activeSection, setActiveSection, isCollapsed = false }) => {
           })}
         </nav>
         
-        {/* Storage indicator */}
+        {/* Storage indicator - Expanded version */}
         {!isCollapsed && (
           <div className="mt-6 md:mt-8 p-3 md:p-4 bg-gray-100 rounded-lg">
             <div className="flex items-center justify-between text-xs md:text-sm text-gray-600 mb-2">
@@ -67,10 +68,25 @@ const Sidebar = ({ activeSection, setActiveSection, isCollapsed = false }) => {
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div className="bg-orange-500 h-2 rounded-full" style={{ width: '47.7%' }}></div>
             </div>
-            <button className="mt-2 md:mt-3 text-xs md:text-sm text-orange-600 hover:underline">
+            <button className="mt-2 md:mt-3 text-xs md:text-sm text-orange-600 hover:underline block">
               Get more storage
             </button>
           </div>
+        )}
+
+        {/* Storage indicator - Collapsed version */}
+        {isCollapsed && (
+          <CustomTooltip content="Storage: 47% used (7.16 GB of 15 GB)" side="right">
+            <div className="mt-6 md:mt-8 p-2 bg-gray-100 rounded-lg">
+              <div className="flex flex-col items-center space-y-2">
+                <HardDrive className="h-4 w-4 text-gray-600" />
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div className="bg-orange-500 h-1.5 rounded-full" style={{ width: '47.7%' }}></div>
+                </div>
+                <span className="text-xs text-gray-600">47%</span>
+              </div>
+            </div>
+          </CustomTooltip>
         )}
       </div>
     </div>

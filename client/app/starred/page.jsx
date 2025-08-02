@@ -11,7 +11,7 @@ import CustomTooltip from '@/components/CustomTooltip';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import logo from '@/assets/logo.svg'; 
-import { clearUserData } from '@/utils/localStorage';
+import { clearUserData } from '@/utils/localStorage'; 
 
 // Header Component
 const Header = ({ isSmall = false }) => {
@@ -30,8 +30,9 @@ const Header = ({ isSmall = false }) => {
 };
 
 // Main Drive Home Page Component
-const StarredPage = () => {
-  const [activeSection, setActiveSection] = useState('starred');
+const HomePage = () => {
+  const [groups , setGroups] = useState([]); // State to hold groups
+  const [activeSection, setActiveSection] = useState('home');
   const [isMobile, setIsMobile] = useState(false);
   const userName = 'Harivansh B';
   const router = useRouter();
@@ -53,8 +54,8 @@ const StarredPage = () => {
   };
 
   const handleLogoutClick = () => {
-    clearUserData();             // Clear localStorage user data
-    router.push('/auth/login');  // Redirect to login
+      clearUserData();              
+      router.push('/auth/login');
   };
 
   // Calculate profile picture size based on screen size
@@ -112,8 +113,8 @@ const StarredPage = () => {
               <ProfileDropdown 
                 userName={userName} 
                 size={profileSize} 
-                onSettingsClick={handleSettingsClick}
-                onLogoutClick={handleLogoutClick}
+                handleSettings={handleSettingsClick}
+                handleLogout={handleLogoutClick}
               />
             )}
           </div>
@@ -130,7 +131,7 @@ const StarredPage = () => {
         <div className={`flex-1 min-w-0 ${isMobile ? 'p-4' : 'p-8'} bg-[#fdfbf7]`}>
           {/* Search Bar */}
           <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
-            <SearchBar isSmall={isMobile} />
+            <SearchBar isSmall={isMobile} groups={groups} setGroups={setGroups} />
           </div>
           
           {/* Welcome Section */}
@@ -140,11 +141,11 @@ const StarredPage = () => {
           </div>
           
           {/* Groups Table */}
-          <GroupsTable isSmall={isMobile} starred={true} />
+          <GroupsTable isSmall={isMobile} groups={groups} starred={true}/>
         </div>
       </div>
     </div>
   );
 };
 
-export default StarredPage;
+export default HomePage;

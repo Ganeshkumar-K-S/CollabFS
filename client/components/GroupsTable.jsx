@@ -1,63 +1,43 @@
 'use client';
 
-import React, { useState } from 'react';
-import {MoreHorizontal, Folder, Clock, Users, StarIcon} from 'lucide-react';
+import React from 'react';
+import {MoreHorizontal, Folder, Clock, Users, StarIcon, Crown, User, Eye} from 'lucide-react';
 import CustomTooltip from '@/components/CustomTooltip';
 
 // Groups Table Component
-const GroupsTable = ({ isSmall = false , starred = false}) => {
-  const [groups, setGroups] = useState([
-    {
-      id: 1,
-      name: 'Project Alpha',
-      type: 'group',
-      modified: '2 hours ago',
-      owner: 'me',
-      shared: false,
-      starred: false
-    },
-    {
-      id: 2,
-      name: 'Personal Documents',
-      type: 'group',
-      modified: '1 day ago',
-      owner: 'me',
-      shared: false,
-      starred: true
-    },
-    {
-      id: 3,
-      name: 'Team Collaboration',
-      type: 'group',
-      modified: '3 days ago',
-      owner: 'me',
-      shared: true,
-      starred: false
-    },
-    {
-      id: 4,
-      name: 'Archive 2024',
-      type: 'group',
-      modified: '1 week ago',
-      owner: 'me',
-      shared: false,
-      starred: true
-    },
-    {
-      id: 5,
-      name: 'Client Files',
-      type: 'group',
-      modified: '2 weeks ago',
-      owner: 'me',
-      shared: true,
-      starred: false
+const GroupsTable = ({ isSmall = false, starred = false, groups = [], onToggleStar }) => {
+  const getRoleIcon = (role) => {
+    switch (role.toLowerCase()) {
+      case 'owner':
+        return <Crown className="h-3 w-3 text-orange-500" />;
+      case 'admin':
+        return <Users className="h-3 w-3 text-blue-500" />;
+      case 'editor':
+        return <User className="h-3 w-3 text-green-500" />;
+      case 'member':
+        return <User className="h-3 w-3 text-green-500" />;
+      case 'viewer':
+        return <Eye className="h-3 w-3 text-gray-500" />;
+      default:
+        return <User className="h-3 w-3 text-gray-500" />;
     }
-  ]);
+  };
 
-  const toggleStar = (id) => {
-    setGroups(groups.map(group => 
-      group.id === id ? { ...group, starred: !group.starred } : group
-    ));
+  const getRoleColor = (role) => {
+    switch (role.toLowerCase()) {
+      case 'owner':
+        return 'text-orange-600 bg-orange-50';
+      case 'admin':
+        return 'text-blue-600 bg-blue-50';
+      case 'editor':
+        return 'text-green-600 bg-green-50';
+      case 'member':
+        return 'text-green-600 bg-green-50';
+      case 'viewer':
+        return 'text-gray-600 bg-gray-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
+    }
   };
 
   // Filter groups based on starred prop
@@ -75,53 +55,39 @@ const GroupsTable = ({ isSmall = false , starred = false}) => {
           <thead className="bg-gray-50">
             <tr>
               <th className={`px-3 md:px-6 ${isSmall ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Name</th>
-              {!isSmall && (
-                <>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Owner</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Shared</th>
-                </>
-              )}
+              <th className={`px-3 md:px-6 ${isSmall ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Role</th>
               <th className={`px-3 md:px-6 ${isSmall ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Last Modified</th>
               <th className={`px-3 md:px-6 ${isSmall ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 uppercase tracking-wider`}>Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredGroups.map((group) => (
-              <tr key={group.id} className="hover:bg-gray-50 cursor-pointer">
+              <tr key={group.groupId} className="hover:bg-gray-50 cursor-pointer">
                 <td className={`px-3 md:px-6 ${isSmall ? 'py-3' : 'py-4'} whitespace-nowrap`}>
                   <div className="flex items-center min-w-0">
                     <Folder className={`${isSmall ? 'h-4 w-4' : 'h-5 w-5'} text-orange-500 mr-2 md:mr-3 flex-shrink-0`} />
-                    <span className={`${isSmall ? 'text-xs' : 'text-sm'} font-medium text-gray-900 truncate`}>{group.name}</span>
+                    <span className={`${isSmall ? 'text-xs' : 'text-sm'} font-medium text-gray-900 truncate`}>{group.groupName}</span>
                   </div>
                 </td>
-                {!isSmall && (
-                  <>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                      {group.owner}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                      {group.shared ? (
-                        <div className="flex items-center text-orange-600">
-                          <Users className="h-4 w-4 mr-1" />
-                          Shared
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">Private</span>
-                      )}
-                    </td>
-                  </>
-                )}
+                <td className={`px-3 md:px-6 ${isSmall ? 'py-3' : 'py-4'} whitespace-nowrap`}>
+                  <div className="flex items-center min-w-0">
+                    {getRoleIcon(group.role)}
+                    <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(group.role)}`}>
+                      {group.role.charAt(0).toUpperCase() + group.role.slice(1)}
+                    </span>
+                  </div>
+                </td>
                 <td className={`px-3 md:px-6 ${isSmall ? 'py-3' : 'py-4'} whitespace-nowrap text-gray-500`}>
                   <div className="flex items-center min-w-0">
                     <Clock className={`${isSmall ? 'h-3 w-3' : 'h-4 w-4'} mr-1 md:mr-2 flex-shrink-0`} />
-                    <span className={`${isSmall ? 'text-xs' : 'text-sm'} truncate`}>{group.modified}</span>
+                    <span className={`${isSmall ? 'text-xs' : 'text-sm'} truncate`}>{group.lastModified}</span>
                   </div>
                 </td>
                 <td className={`px-3 md:px-6 ${isSmall ? 'py-3' : 'py-4'} whitespace-nowrap text-right text-sm font-medium`}>
                   <div className="flex items-center justify-end space-x-1 md:space-x-2">
                     <CustomTooltip content={group.starred ? "Remove from starred" : "Add to starred"}>
                       <button
-                        onClick={() => toggleStar(group.id)}
+                        onClick={() => onToggleStar && onToggleStar(group.groupId)}
                         className={`p-1 rounded hover:bg-gray-100 transition-colors ${
                           group.starred ? 'text-orange-500' : 'text-gray-400'
                         }`}
@@ -129,9 +95,6 @@ const GroupsTable = ({ isSmall = false , starred = false}) => {
                         <StarIcon className={`${isSmall ? 'h-3 w-3' : 'h-4 w-4'} ${group.starred ? 'fill-current' : ''}`} />
                       </button>
                     </CustomTooltip>
-                    <button className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100">
-                      <MoreHorizontal className={`${isSmall ? 'h-3 w-3' : 'h-4 w-4'}`} />
-                    </button>
                   </div>
                 </td>
               </tr>

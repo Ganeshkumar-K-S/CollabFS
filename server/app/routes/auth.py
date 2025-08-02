@@ -180,42 +180,50 @@ async def setuserid_api(request: UserModel):
         )
 
 
-@file_engine.post("/email/login",dependencies=[Depends(verify_auth_api)]) 
-async def login_api(request:LoginModel):
-    try:       
+@file_engine.post("/email/login", dependencies=[Depends(verify_auth_api)])
+async def login_api(request: LoginModel):
+    try:
         user_doc = await db.user.find_one({"email": request.email})
         if not user_doc:
-            return {
-                "success": False, 
-                "message": "User not found"
-                }    
+            return {"success": False, "message": "User not found"}
+        
         user = User(**user_doc)
+        
         await db.user.update_one(
-        {"_id": user.id},
-        {"$set": {"lastAccessed": datetime.now(timezone.utc)}}
+            {"_id": user.id},
+            {"$set": {"lastAccessed": datetime.now(timezone.utc)}}
         )
-    
-        if not auth_util.verify_password(request.pwd,user.pwd):
-            return {
-                  "success": False,
-                  "message": "Password does not match"
-                  }
-
-        token=auth_util.generate_token({"id":user.id,"name":user.name,"email":user.email})
-        session_credentials={
-            "username":user.name,
-            "email":user.email
+        
+        is_password_valid = auth_util.verify_password(request.pwd, user.pwd)
+        
+        if not is_password_valid:
+            return {"success": False, "message": "Password does not match"}
+        
+        print("Generating token...")
+        # Make sure this function only returns a string
+        token = auth_util.generate_token({
+            "id": user.id,
+            "name": user.name,
+            "email": user.email
+        })
+        
+        return {
+            "success": True,
+            "token": token,
+            "session_details": {
+                "id": user.id,
+                "username": user.name,
+                "email": user.email
             }
-
-        return {   
-                "success":True,
-                "token":token,
-                "session_details":session_credentials
-            }
+        }
+        
     except Exception as e:
-         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid user data format"
+        print(f"Login error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
 
 
@@ -259,6 +267,7 @@ async def auth(request: Request):
         # Construct redirect URL to frontend with token and user info
         query_params = urlencode({
             "token": jwt_token,
+            "id": user_id,
             "email": email,
             "username": username
         })

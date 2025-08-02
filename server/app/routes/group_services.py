@@ -224,6 +224,7 @@ async def search(
                                 "starred":starred
                              }
                         )
+                    print(response)
                     return response
                         
                 except Exception as e:

@@ -1,48 +1,52 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getUserData, clearUserData, isUserLoggedIn } from '../utils/localStorage'
 
 export default function Page() {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(true)
 
-    // Functions to handle localStorage
-    const setUserData = (userData) => {
-        localStorage.setItem('userEmail', userData.email || '')
-        localStorage.setItem('username', userData.username || '')
-        localStorage.setItem('hashedPassword', userData.hashedPassword || '')
-        localStorage.setItem('jwtToken', userData.jwtToken || '')
-    }
-
-    const getUserData = () => {
-        return {
-            email: localStorage.getItem('userEmail') || '',
-            username: localStorage.getItem('username') || '',
-            hashedPassword: localStorage.getItem('hashedPassword') || '',
-            jwtToken: localStorage.getItem('jwtToken') || ''
-        }
-    }
-
-    const clearUserData = () => {
-        localStorage.removeItem('userEmail')
-        localStorage.removeItem('username')
-        localStorage.removeItem('hashedPassword')
-        localStorage.removeItem('jwtToken')
-    }
-
-    useEffect(() => {
-        // Check if user data exists in localStorage
-        const userData = getUserData()
-        
-        if (userData.jwtToken) {
-            // User has a token, redirect to home
-            router.push('/home')
-        } else {
-            // No token found, redirect to auth
+    const validateAndRedirect = () => {
+        try {
+            if (isUserLoggedIn()) {
+                // User is logged in with valid token, redirect to home
+                console.log('Valid token found, redirecting to home')
+                router.push('/home')
+            } else {
+                // Token is invalid, expired, or missing - redirect to auth
+                console.log('Invalid or expired token, redirecting to auth')
+                router.push('/auth')
+            }
+        } catch (error) {
+            console.error('Error during token validation:', error)
+            // On error, clear data and redirect to auth
+            clearUserData()
             router.push('/auth')
+        } finally {
+            setIsLoading(false)
         }
-        
-        setIsLoading(false)
+    }
+
+    // Initial token check on component mount
+    useEffect(() => {
+        validateAndRedirect()
+    }, [router])
+
+    // Periodic token expiry check (every 5 minutes)
+    useEffect(() => {
+        const checkTokenExpiry = () => {
+            if (!isUserLoggedIn()) {
+                console.log('Token expired during session, logging out')
+                router.push('/auth')
+            }
+        }
+
+        // Check token expiry every 5 minutes (300000ms)
+        const interval = setInterval(checkTokenExpiry, 300000)
+
+        // Cleanup interval on component unmount
+        return () => clearInterval(interval)
     }, [router])
 
     // Show loading while checking localStorage

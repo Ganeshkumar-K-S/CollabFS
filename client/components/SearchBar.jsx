@@ -1,11 +1,36 @@
 'use client';
 
-import React , { useState } from 'react';
+import React , { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
+import {getData} from '@/utils/localStorage';
 
 // Search Bar Component
-const SearchBar = ({ isSmall = false }) => {
+const SearchBar = ({ isSmall = false , groups , setGroups }) => {
   const [searchValue, setSearchValue] = useState('');
+  const id = 'test_user_123';
+
+  const API_KEY = process.env.NEXT_PUBLIC_GROUP_API_KEY;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://localhost:8000';
+  useEffect(() => {
+    const searchString = searchValue.trim() || '__empty__';
+    const handleSearch = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/group/search/${id}/${searchString}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': `${API_KEY}`
+          }
+        });
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        setGroups(data || []);
+      } catch (error) {
+        console.error('Error fetching search results:', error);
+      }
+    };
+    handleSearch();
+  }, [searchValue, id, API_BASE_URL, API_KEY]);
 
   return (
     <div className={`relative ${isSmall ? 'max-w-md' : 'max-w-2xl'} mx-auto`}>
