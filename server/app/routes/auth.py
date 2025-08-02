@@ -85,6 +85,7 @@ async def signup_api(request:SignupModel):
     return {
             "success":True,
             "session_details":{"email":request.email,
+                               "username":request.username ,
                                "hashed_password":auth_util.get_password_hash(request.pwd)}
             }
         
@@ -114,8 +115,8 @@ async def sendotp_api(email:str,background_tasks: BackgroundTasks):
     return {"message": "OTP sent successfully"}
 
 
-@file_engine.post("/email/setusername", dependencies=[Depends(verify_auth_api)])
-async def getusername_api(request: Signup, otp: str):
+@file_engine.post("/email/setuserid", dependencies=[Depends(verify_auth_api)])
+async def setuserid_api(request: Signup, otp: str):
     try:
         otp_entry = await db.otp_store.find_one({"email": request.email, "otp": otp})
         
