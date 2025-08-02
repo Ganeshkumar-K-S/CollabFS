@@ -123,40 +123,6 @@ export default function LoginForm({
     }
   };
 
-  // Handle OAuth callback (if returned from Google auth)
-  React.useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const email = urlParams.get('email');
-    const username = urlParams.get('username');
-    
-    if (token && email && username) {
-      // Prepare user data
-      const userData = {
-        email: email,
-        username: username,
-        jwtToken: token
-      };
-      
-      // Store in localStorage and update context
-      setUserData(userData);
-      updateUserData(userData);
-      
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      console.log("OAuth callback processed, user data stored");
-      router.push('/home');
-    }
-  }, [router, updateUserData]);
-
-  // Check if user is already logged in on component mount
-  React.useEffect(() => {
-    if (isUserLoggedIn()) {
-      console.log("User already logged in, redirecting to home");
-      router.push('/home');
-    }
-  }, [router]);
 
   const handleForgotPassword = () => {
     console.log("Forgot password clicked");
