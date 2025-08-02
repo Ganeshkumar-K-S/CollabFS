@@ -1,53 +1,139 @@
 // utils/localStorage.js
+
 export const setUserData = (userData) => {
-    if (userData.email) localStorage.setItem('userEmail', userData.email)
-    if (userData.username) localStorage.setItem('username', userData.username)
-    if (userData.hashedPassword) localStorage.setItem('hashedPassword', userData.hashedPassword)
-    if (userData.jwtToken) localStorage.setItem('jwtToken', userData.jwtToken)
+    try {
+        if (userData.email) localStorage.setItem('userEmail', userData.email)
+        if (userData.username) localStorage.setItem('username', userData.username)
+        if (userData.hashedPassword) localStorage.setItem('hashedPassword', userData.hashedPassword)
+        if (userData.jwtToken) localStorage.setItem('jwtToken', userData.jwtToken)
+        
+        console.log('User data saved to localStorage:', {
+            email: userData.email,
+            username: userData.username,
+            hasToken: !!userData.jwtToken
+        });
+    } catch (error) {
+        console.error('Failed to save user data to localStorage:', error);
+    }
 }
 
 export const getUserData = () => {
-    return {
-        email: localStorage.getItem('userEmail') || '',
-        username: localStorage.getItem('username') || '',
-        hashedPassword: localStorage.getItem('hashedPassword') || '',
-        jwtToken: localStorage.getItem('jwtToken') || ''
+    try {
+        return {
+            email: localStorage.getItem('userEmail') || '',
+            username: localStorage.getItem('username') || '',
+            hashedPassword: localStorage.getItem('hashedPassword') || '',
+            jwtToken: localStorage.getItem('jwtToken') || ''
+        }
+    } catch (error) {
+        console.error('Failed to get user data from localStorage:', error);
+        return {
+            email: '',
+            username: '',
+            hashedPassword: '',
+            jwtToken: ''
+        };
     }
 }
 
 export const updateUserField = (field, value) => {
-    localStorage.setItem(field, value)
+    try {
+        localStorage.setItem(field, value)
+    } catch (error) {
+        console.error('Failed to update user field:', error);
+    }
 }
 
 export const clearUserData = () => {
-    localStorage.removeItem('userEmail')
-    localStorage.removeItem('username')
-    localStorage.removeItem('hashedPassword')
-    localStorage.removeItem('jwtToken')
+    try {
+        localStorage.removeItem('userEmail')
+        localStorage.removeItem('username')
+        localStorage.removeItem('hashedPassword')
+        localStorage.removeItem('jwtToken')
+        console.log('User data cleared from localStorage');
+    } catch (error) {
+        console.error('Failed to clear user data:', error);
+    }
 }
 
 export const isUserLoggedIn = () => {
-    return !!localStorage.getItem('jwtToken')
+    try {
+        const token = localStorage.getItem('jwtToken');
+        
+        if (!token) {
+            console.log('No JWT token found');
+            return false;
+        }
+        
+        // Basic JWT structure validation
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+            console.log('Invalid JWT token structure');
+            clearUserData(); // Clear invalid token
+            return false;
+        }
+        
+        // Try to decode and check expiration
+        try {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            const currentTime = Math.floor(Date.now() / 1000);
+            
+            if (payload.exp && payload.exp < currentTime) {
+                console.log('JWT token has expired');
+                clearUserData(); // Clear expired token
+                return false;
+            }
+            
+            console.log('User is logged in with valid token');
+            return true;
+        } catch (decodeError) {
+            console.log('Failed to decode JWT token, but token exists');
+            // If we can't decode but token exists, assume it's valid
+            // Your backend might use a different JWT format
+            return true;
+        }
+    } catch (error) {
+        console.error('Error checking login status:', error);
+        return false;
+    }
 }
 
 // Temporary storage for password reset/change flows
 export const setTempData = (key, value) => {
-    localStorage.setItem(`temp_${key}`, value)
+    try {
+        localStorage.setItem(`temp_${key}`, value)
+    } catch (error) {
+        console.error('Failed to set temp data:', error);
+    }
 }
 
 export const getTempData = (key) => {
-    return localStorage.getItem(`temp_${key}`) || ''
+    try {
+        return localStorage.getItem(`temp_${key}`) || ''
+    } catch (error) {
+        console.error('Failed to get temp data:', error);
+        return '';
+    }
 }
 
 export const clearTempData = (key) => {
-    localStorage.removeItem(`temp_${key}`)
+    try {
+        localStorage.removeItem(`temp_${key}`)
+    } catch (error) {
+        console.error('Failed to clear temp data:', error);
+    }
 }
 
 export const clearAllTempData = () => {
-    const keys = Object.keys(localStorage)
-    keys.forEach(key => {
-        if (key.startsWith('temp_')) {
-            localStorage.removeItem(key)
-        }
-    })
+    try {
+        const keys = Object.keys(localStorage)
+        keys.forEach(key => {
+            if (key.startsWith('temp_')) {
+                localStorage.removeItem(key)
+            }
+        })
+        console.log('All temporary data cleared');
+    } catch (error) {
+        console.error('Failed to clear temp data:', error);
+    }
 }

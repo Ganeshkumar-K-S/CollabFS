@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import GoogleIcon from './GoogleIcon'; // Adjust path as needed
 import Divider from './Divider'; // Adjust path as needed
+import { setUserData, setTempData, clearUserData, clearAllTempData } from '@/utils/localStorage';
 
 export default function SignupForm({
   email,
@@ -25,12 +26,31 @@ export default function SignupForm({
   const API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY;
 
   const handleGoogleAuth = () => {
-    // Redirect to backend to start OAuth2 flow
-    const redirectUrl = `${API_BASE_URL}/auth/login`;
-    window.location.href = redirectUrl;
+    const query = new URLSearchParams(window.location.search);
+    const token = query.get('token');
+    const name = query.get('name');
+    const email = query.get('email');
+
+    if (token && name && email) {
+      // Use localStorage utility to store user data
+      const userData = {
+        email: email,
+        username: name, // Using name as username for Google auth
+        jwtToken: token
+      };
+      
+      setUserData(userData);
+      window.location.href = '/home'; // Redirect to home
+    } else {
+      // Start login redirect flow
+      window.location.href = `${API_BASE_URL}/auth/login`;
+    }
   };
 
   const handleSignup = async () => {
+    // Clear any existing temporary data
+    clearAllTempData();
+    
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -97,7 +117,14 @@ export default function SignupForm({
 
       console.log('OTP sent successfully');
 
-      // Store temporary signup data for the next step
+      // Store temporary signup data using localStorage utilities
+      setTempData('signup_email', email);
+      setTempData('signup_password', password);
+      setTempData('signup_username', username);
+      setTempData('signup_hashed_password', signupData.session_details.hashed_password);
+      setTempData('signup_timestamp', Date.now().toString());
+
+      // Prepare temp data object for the callback
       const tempSignupData = {
         email: email,
         pwd: password,
@@ -105,6 +132,8 @@ export default function SignupForm({
         hashedPassword: signupData.session_details.hashed_password,
         timestamp: Date.now()
       };
+
+      console.log('Temporary signup data stored in localStorage');
 
       // Pass this data to the next step (OTP verification)
       if (onConfirm) {
@@ -114,10 +143,21 @@ export default function SignupForm({
     } catch (error) {
       console.error('Signup error:', error);
       setError(error.message || 'Signup failed. Please try again.');
+      // Clear temporary data on error
+      clearAllTempData();
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Clean up temporary data when component unmounts (optional)
+  React.useEffect(() => {
+    return () => {
+      // Optional: Clear temp data on component unmount
+      // You might want to keep this data for the OTP verification step
+      // clearAllTempData();
+    };
+  }, []);
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value);

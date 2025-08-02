@@ -5,6 +5,7 @@ import GoogleIcon from './GoogleIcon';
 import Divider from './Divider';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from './AuthWrapper';
+import { setUserData, clearUserData, isUserLoggedIn } from '@/utils/localStorage';
 
 export default function LoginForm({
   onForgotPassword
@@ -20,26 +21,33 @@ export default function LoginForm({
     setEmail,
     password,
     setPassword,
-    updateUserData,
-    clearUserData
+    updateUserData
   } = useAuth();
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY;
 
-  const handleGoogleAuth = async () => {
-    console.log("Google OAuth2 login");
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      // Redirect to Google OAuth endpoint
-      window.location.href = `${API_BASE_URL}/auth/auth`;
+  const handleGoogleAuth = () => {
+    const query = new URLSearchParams(window.location.search);
+    const token = query.get('token');
+    const name = query.get('name');
+    const email = query.get('email');
+
+    if (token && name && email) {
+      // Use localStorage utility to store user data
+      const userData = {
+        email: email,
+        username: name, // Using name as username for Google auth
+        jwtToken: token
+      };
       
-    } catch (err) {
-      console.error("Google auth error:", err);
-      setError("Google authentication failed. Please try again.");
-      setIsLoading(false);
+      setUserData(userData);
+      updateUserData(userData);
+      
+      window.location.href = '/home'; // Redirect to home
+    } else {
+      // Start login redirect flow
+      window.location.href = `${API_BASE_URL}/auth/login`;
     }
   };
 
@@ -47,6 +55,9 @@ export default function LoginForm({
     console.log("Login:", { email, password });
     setIsLoading(true);
     setError('');
+    
+    // Clear any existing user data before attempting login
+    clearUserData();
     
     try {
       // Basic validation
@@ -85,21 +96,28 @@ export default function LoginForm({
         throw new Error(data.message || 'Login failed');
       }
       
-      // Store user data in memory and context
+      // Prepare user data for storage
       const userData = {
         email: data.session_details.email,
         username: data.session_details.username,
         jwtToken: data.token
       };
       
+      // Store user data in localStorage using utility functions
+      setUserData(userData);
+      
+      // Also update context state
       updateUserData(userData);
       
-      console.log("Login successful, redirecting to home...");
+      console.log("Login successful, user data stored in localStorage");
+      console.log("Redirecting to home...");
       router.push('/home');
       
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Login failed. Please try again.");
+      // Clear any partially stored data on error
+      clearUserData();
     } finally {
       setIsLoading(false);
     }
@@ -113,21 +131,32 @@ export default function LoginForm({
     const username = urlParams.get('username');
     
     if (token && email && username) {
-      // Update user data and redirect
+      // Prepare user data
       const userData = {
         email: email,
         username: username,
         jwtToken: token
       };
       
+      // Store in localStorage and update context
+      setUserData(userData);
       updateUserData(userData);
       
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
       
+      console.log("OAuth callback processed, user data stored");
       router.push('/home');
     }
   }, [router, updateUserData]);
+
+  // Check if user is already logged in on component mount
+  React.useEffect(() => {
+    if (isUserLoggedIn()) {
+      console.log("User already logged in, redirecting to home");
+      router.push('/home');
+    }
+  }, [router]);
 
   const handleForgotPassword = () => {
     console.log("Forgot password clicked");
