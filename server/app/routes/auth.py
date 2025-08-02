@@ -111,7 +111,7 @@ async def sendotp_api(email:str,background_tasks: BackgroundTasks):
     return {"message": "OTP sent successfully"}
 
 
-@file_engine.post("/email/getusername", dependencies=[Depends(verify_auth_api)])
+@file_engine.post("/email/setusername", dependencies=[Depends(verify_auth_api)])
 async def getusername_api(request: Signup, otp: str):
     try:
         otp_entry = await db.otp_store.find_one({"email": request.email, "otp": otp})
