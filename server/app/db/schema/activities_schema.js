@@ -19,7 +19,7 @@ db.createCollection(
                         description : "activity must be of type string"
                     },
                     fileId : {
-                        bsonType : "objectId",
+                        bsonType : ["objectId","null"],
                         description : "fileId must be of type objectid"
                     },
                     timestamp : {

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status,Request,APIRouter,BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status,Request,APIRouter,BackgroundTasks, Response
 from pydantic import BaseModel
 from starlette.status import HTTP_403_FORBIDDEN
 from passlib.context import CryptContext
@@ -12,9 +12,12 @@ from app.db.connection import db
 from pathlib import Path
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
+from urllib.parse import urlencode
+from fastapi.responses import RedirectResponse
+
 
 file_engine = APIRouter(prefix="/auth")
-
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 mail_config = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
@@ -212,7 +215,7 @@ async def login_api(request:LoginModel):
 async def auth(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
-        print("Token:",token)
+        print("Token:", token)
         user_info = token.get("userinfo")
         if not user_info:
             raise HTTPException(status_code=400, detail="User info not found in token")
@@ -220,10 +223,9 @@ async def auth(request: Request):
         email = user_info.get("email")
         username = user_info.get("name")
 
-
         user_doc = await db.user.find_one({"email": email})
         if user_doc is None:
-            user_id = await auth_util.generate_userid(username,db)
+            user_id = await auth_util.generate_userid(username, db)
             print(user_id)
             await db.user.insert_one({
                 "_id": user_id,
@@ -240,19 +242,29 @@ async def auth(request: Request):
                 {"$set": {"lastAccessed": datetime.now(timezone.utc)}}
             )
 
-        token = auth_util.generate_token({
+        jwt_token = auth_util.generate_token({
             "id": user_id,
             "name": username,
             "email": email
         })
 
-        return token
+        # Construct redirect URL to frontend with token and user info
+        query_params = urlencode({
+            "token": jwt_token,
+            "email": email,
+            "username": username
+        })
+        redirect_url = f"{FRONTEND_URL}/auth?{query_params}"
+        return RedirectResponse(url=redirect_url)
 
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Google Auth Failed: {str(e)}"
-        )
+        print("Google Auth Failed:", str(e))
+        error_params = urlencode({
+            "error": "auth_failed",
+            "message": str(e)
+        })
+        redirect_url = f"{FRONTEND_URL}/auth/error?{error_params}"
+        return RedirectResponse(url=redirect_url)
 
 @file_engine.get("/login")
 async def login_via_google(request: Request):

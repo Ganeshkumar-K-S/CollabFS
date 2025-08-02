@@ -11,6 +11,7 @@ import CustomTooltip from '@/components/CustomTooltip';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import logo from '@/assets/logo.svg'; 
+import { clearUserData } from '@/utils/localStorage';
 
 // Header Component
 const Header = ({ isSmall = false }) => {
@@ -52,7 +53,8 @@ const StarredPage = () => {
   };
 
   const handleLogoutClick = () => {
-    router.push('/auth/login');
+    clearUserData();             // Clear localStorage user data
+    router.push('/auth/login');  // Redirect to login
   };
 
   // Calculate profile picture size based on screen size
