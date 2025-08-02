@@ -3,14 +3,13 @@ from app.db.collections import files,activities
 from fastapi import APIRouter, UploadFile, File, HTTPException,Request,Depends,Form
 from fastapi.responses import StreamingResponse
 from io import BytesIO
-from app.models.file_model import File as FileModel
+from app.models.file_model import File as FileModel, FileAccess
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 from datetime import datetime,timezone
 from bson import ObjectId, Int64
 from dotenv import load_dotenv
 load_dotenv()
 import os
-
 
 file_engine = APIRouter(prefix="/file")
 
@@ -24,105 +23,120 @@ def verify_file_api(request : Request):
             detail="Unauthorized access"
         )
 
-@file_engine.post("/upload",dependencies=[Depends(verify_file_api)]) 
+@file_engine.post("/upload", dependencies=[Depends(verify_file_api)]) 
 async def upload_file(
-                      file: UploadFile = File(...),
-                      contentType : str = Form(...),
-                      db = Depends(get_db),
-                      fs = Depends(get_fs)
-                      ):
-    try:
-        contents = await file.read()
-        file_id = await fs.upload_from_stream(file.filename, contents)
-        file_data = {
-            "name": f"{file.filename}",
-            "uploadedBy": "anonymous",
-            "uploadedAt" : datetime.now(timezone.utc),
-            "GridFSId" : file_id,
-            "size" : Int64(len(contents)),
-            "groupId": "tempgroup123",
-            "contentType":contentType,
-            "pinned":False
-        }
+    file: UploadFile = File(...),
+    contentType: str = Form(...),
+    db = Depends(get_db),
+    fs = Depends(get_fs)
+):
+    async with await db.client.start_session() as session:
+        async with session.start_transaction():
+            try:
+                contents = await file.read()
+                file_id = await fs.upload_from_stream(file.filename, contents)
 
-        file_id=await db.files.insert_one(file_data)
+                file_data = {
+                    "name": f"{file.filename}",
+                    "uploadedBy": "anonymous",
+                    "uploadedAt": datetime.now(timezone.utc),
+                    "GridFSId": file_id,
+                    "size": Int64(len(contents)),
+                    "groupId": "tempgroup123",
+                    "contentType": contentType,
+                    "pinned": False
+                }
+
+                insert_result = await db.files.insert_one(file_data, session=session)
+
+                activity_data = {
+                    "userId": "anonymous",
+                    "groupId": "tempgroup123",
+                    "activityType": "FILE_UPLOADED",
+                    "fileId": insert_result.inserted_id,
+                    "timestamp": datetime.now(timezone.utc)
+                }
+
+                await db.activities.insert_one(activity_data, session=session)
+
+                return {"file_id": str(insert_result.inserted_id), "filename": file.filename}
+
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-        activity_data={
-            "userId" : "anonymous",
-            "groupId" : "tempgroup123",
-            "activityType":"FILE_UPLOADED",
-            "fileId": file_id.inserted_id,
-            "timestamp": datetime.now(timezone.utc)
-        }
 
-        await db.activities.insert_one(activity_data)
-        
-        return {"file_id": str(file_id), "filename": file.filename}
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@file_engine.delete("/delete",dependencies=[Depends(verify_file_api)])
+@file_engine.delete("/delete", dependencies=[Depends(verify_file_api)])
 async def delete_file(
-                    request: Request,
-                    db = Depends(get_db),
-                    fs = Depends(get_fs)
-                    ):
+    data: FileAccess,
+    db=Depends(get_db),
+    fs=Depends(get_fs)
+):
+    async with await db.client.start_session() as session:
+        async with session.start_transaction():
+            try:
+                file_id = data.fileId
+                filedata = await db.files.find_one(
+                    {"_id": ObjectId(file_id)},
+                    {"GridFSId": 1, "groupId": 1},
+                    session=session
+                )
+
+                if not filedata or not filedata.get("GridFSId"):
+                    raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="File not found")
+
+                # Delete from GridFS
+                await fs.delete(filedata["GridFSId"])
+
+                # Delete metadata
+                await db.files.delete_one({"_id": ObjectId(file_id)}, session=session)
+
+                # Record delete activity
+                activity_data = {
+                    "userId": data.userId,
+                    "groupId": filedata["groupId"],
+                    "activityType": "FILE_DELETED",
+                    "fileId": ObjectId(file_id),
+                    "timestamp": datetime.now(timezone.utc)
+                }
+
+                await db.activities.insert_one(activity_data, session=session)
+
+                return {"message": f"{file_id} file deleted successfully"}
+
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
+
+@file_engine.post("/download")
+async def download_file(
+    data: FileAccess,
+    request: Request,
+    db=Depends(get_db),
+    fs=Depends(get_fs)
+):
     try:
-        data=await request.json()
-        print(data)
-        file_id=data["file_id"]
-        gridfs_id=await db.files.find_one( 
-                {
-                    "_id": ObjectId(file_id)
-                },
-                {
-                    "_id":0,
-                    "GridFSId":1
-                } 
-            )
-        if gridfs_id is None:
-            raise HTTPException(status_code=HTTP_404_NOT_FOUND,detail="file not found")
-        await fs.delete(gridfs_id['GridFSId'])
-        db.files.delete_one({"_id":ObjectId(file_id)})
-        activity_data={
-            "userId" : "anonymous",
-            "groupId" : "tempgroup123",
-            "activityType":"FILE_DELETED",
+        file_id = data.fileId
+        file_data = await db.files.find_one({'_id': ObjectId(file_id)})
+
+        if file_data is None:
+            raise HTTPException(status_code=404, detail="File data not found")
+
+        gridfs_id = file_data['GridFSId']
+        content_type = file_data['contentType']
+        filename = file_data['name']
+
+        grid_out = await fs.open_download_stream(gridfs_id)
+        file_content = await grid_out.read()
+
+        activity_data = {
+            "userId": data.userId,
+            "groupId": file_data["groupId"],
+            "activityType": "FILE_DOWNLOADED",
             "fileId": ObjectId(file_id),
             "timestamp": datetime.now(timezone.utc)
         }
 
         await db.activities.insert_one(activity_data)
-
-        return {"message":f"{file_id} file deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@file_engine.get("/download/{file_id}")
-async def download_file(
-                file_id,
-                request: Request,
-                db=Depends(get_db),
-                fs=Depends(get_fs)
-            ):
-    try:
-        file_data = await db.files.find_one({'_id': ObjectId(file_id)})
-
-        if file_data is None:
-            print("It is none")
-            raise HTTPException(status_code=404, detail="File data not found")
-
-        gridfs_id = file_data['GridFSId']
-        content_type = file_data['contentType']
-        print(file_data)
-        filename =file_data['name']
-        print(filename)
-
-        grid_out = await fs.open_download_stream(gridfs_id)
-        file_content = await grid_out.read()
 
         return StreamingResponse(
             BytesIO(file_content),
@@ -134,7 +148,6 @@ async def download_file(
         )
 
     except Exception as e:
-        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 @file_engine.get("/search/{filename}",dependencies=[Depends(verify_file_api)])

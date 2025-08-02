@@ -11,3 +11,8 @@ class File(BaseModel):
     size : int = Field(...,description="size of the file")
     groupId : str = Field(...,description="Group id to which file is associated")
     pinned : bool = Field(...,description="Whether pinned or not")
+
+
+class FileAccess(BaseModel):
+    userId : str = Field(..., description="user who request for delete")
+    fileId : str = Field(..., description= "file to be deleted")
