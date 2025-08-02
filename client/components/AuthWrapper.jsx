@@ -23,6 +23,7 @@ export default function AuthWrapper() {
   
   // Authentication state
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSignup, setIsSignup] = useState(currentRoute === 'signup');
@@ -84,6 +85,8 @@ export default function AuthWrapper() {
     // Form state
     email,
     setEmail,
+    username,
+    setUsername,
     password,
     setPassword,
     confirmPassword,
@@ -115,7 +118,7 @@ export default function AuthWrapper() {
             
             {/* Left Side: TextContent above AuthPage */}
             <div className="space-y-6">
-              <div>
+              <div className='flex items-center justify-center mb-6'>
                 <TextContent />
               </div>
               
@@ -124,6 +127,8 @@ export default function AuthWrapper() {
                   type={currentRoute}
                   email={email}
                   setEmail={setEmail}
+                  username={username}
+                  setUsername={setUsername}
                   password={password}
                   setPassword={setPassword}
                   confirmPassword={confirmPassword}

@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState , useEffect } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, CheckCircle, X } from 'lucide-react';
 import GoogleIcon from './GoogleIcon'; // Adjust path as needed
 import Divider from './Divider'; // Adjust path as needed
-import { isUserLoggedIn , setTempData, clearAllTempData } from '@/utils/localStorage';
+import { isUserLoggedIn, setTempData, clearAllTempData, setUserData } from '@/utils/localStorage';
 import { useRouter } from 'next/navigation';
 
 export default function SignupForm({
@@ -22,9 +22,23 @@ export default function SignupForm({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState([]);
   const router = useRouter();
-  const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+  const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_BACKEND_URL || 'http://localhost:8000';
   const API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://127.0.0.1:8000';
+
+  // Password validation rules
+  const passwordValidation = {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  };
+
+  const isPasswordValid = Object.values(passwordValidation).every(Boolean);
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
   // Check if user is already logged in on component mount
   useEffect(() => {
@@ -34,31 +48,49 @@ export default function SignupForm({
     }
   }, [router]);
 
+  // Validate form and set errors
+  useEffect(() => {
+    const errors = [];
+
+    if (email && !email.includes('@')) {
+      errors.push('Please enter a valid email address');
+    }
+
+    if (username && username.length < 3) {
+      errors.push('Username must be at least 3 characters long');
+    }
+
+    if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
+      errors.push('Username can only contain letters, numbers, and underscores');
+    }
+
+    if (password && !isPasswordValid) {
+      errors.push('Password does not meet all requirements');
+    }
+
+    if (password && confirmPassword && password !== confirmPassword) {
+      errors.push('Passwords do not match');
+    }
+
+    setValidationErrors(errors);
+  }, [email, username, password, confirmPassword, isPasswordValid]);
+
   const handleGoogleAuth = () => {
-    window.location.href = `${API_BASE_URL}/auth/login`;
+    window.location.href = `${AUTH_BASE_URL}/auth/login`;
   };
 
   const handleSignup = async () => {
     // Clear any existing temporary data
     clearAllTempData();
     
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (!email || !password || !username) {
+    // Final validation
+    if (!email || !password || !username || !confirmPassword) {
       setError('Please fill in all fields');
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address');
+    if (validationErrors.length > 0) {
+      setError('Please fix the errors below before continuing');
       return;
     }
 
@@ -75,80 +107,68 @@ export default function SignupForm({
         },
         body: JSON.stringify({
           email: email,
-          pwd: password
+          pwd: password,
+          username: username
         })
       });
+      
+      let signupData;
+      try {
+        signupData = await signupResponse.json();
+      } catch (err) {
+        throw new Error("Invalid JSON response from server");
+      }
 
-      const signupData = await signupResponse.json();
+      console.log('Signup API response:', signupData);
 
+      // Handle FastAPI-raised exception
       if (!signupResponse.ok) {
-        throw new Error(signupData.detail || 'Signup failed');
+        // If FastAPI sent {"detail": "..."}
+        if (signupData.detail) {
+          throw new Error(
+            typeof signupData.detail === "string"
+              ? signupData.detail
+              : signupData.detail[0]?.msg || "Signup failed"
+          );
+        } else {
+          throw new Error("Signup failed");
+        }
       }
 
+      // Handle returned error (not exception, but a custom error message)
       if (!signupData.success) {
-        throw new Error(signupData.message || 'User already exists');
+        throw new Error(signupData.message || "User already exists");
       }
 
-      // Step 2: Send OTP
-      const otpResponse = await fetch(`${API_BASE_URL}/auth/email/signup/sendotp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': API_KEY
-        },
-        body: JSON.stringify({
-          email: email
-        })
-      });
+      console.log('Signup successful');
 
-      if (!otpResponse.ok) {
-        const otpError = await otpResponse.json();
-        throw new Error(otpError.detail || 'Failed to send OTP');
-      }
-
-      console.log('OTP sent successfully');
-
-      // Store temporary signup data using localStorage utilities
-      setTempData('signup_email', email);
-      setTempData('signup_password', password);
-      setTempData('signup_username', username);
-      setTempData('signup_hashed_password', signupData.session_details.hashed_password);
-      setTempData('signup_timestamp', Date.now().toString());
-
-      // Prepare temp data object for the callback
-      const tempSignupData = {
+      // Store user data from signup response in localStorage
+      const userData = {
         email: email,
-        pwd: password,
         username: username,
         hashedPassword: signupData.session_details.hashed_password,
-        timestamp: Date.now()
       };
 
-      console.log('Temporary signup data stored in localStorage');
+      // Save user data to localStorage
+      setUserData(userData);
 
-      // Pass this data to the next step (OTP verification)
-      if (onConfirm) {
-        onConfirm(tempSignupData);
-      }
+      window.location.href = '/auth/confirm?from=signup';
+
 
     } catch (error) {
       console.error('Signup error:', error);
       setError(error.message || 'Signup failed. Please try again.');
-      // Clear temporary data on error
+      
+      // Clear temporary data and user data on error
       clearAllTempData();
+      
+      // Also clear any user data that might have been stored
+      const { clearUserData } = await import('@/utils/localStorage');
+      clearUserData();
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Clean up temporary data when component unmounts (optional)
-  React.useEffect(() => {
-    return () => {
-      // Optional: Clear temp data on component unmount
-      // You might want to keep this data for the OTP verification step
-      // clearAllTempData();
-    };
-  }, []);
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
@@ -170,7 +190,7 @@ export default function SignupForm({
     if (error) setError('');
   };
 
-  const isFormValid = email && password && confirmPassword && username && !isLoading;
+  const isFormValid = email && password && confirmPassword && username && !isLoading && validationErrors.length === 0;
 
   return (
     <div className="w-full max-w-md text-gray-900 font-sans">
@@ -288,6 +308,104 @@ export default function SignupForm({
             )}
           </button>
         </div>
+
+        {/* Password Requirements */}
+        {password.length > 0 && (
+          <div className="bg-gray-50 rounded-md p-4">
+            <p className="text-xs font-medium text-gray-900 mb-3">Password requirements:</p>
+            <div className="grid grid-cols-1 gap-2">
+              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                passwordValidation.minLength ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {passwordValidation.minLength ? (
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                ) : (
+                  <div className="w-3 h-3 rounded-full border border-gray-400"></div>
+                )}
+                At least 8 characters
+              </div>
+              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                passwordValidation.hasUppercase ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {passwordValidation.hasUppercase ? (
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                ) : (
+                  <div className="w-3 h-3 rounded-full border border-gray-400"></div>
+                )}
+                One uppercase letter (A-Z)
+              </div>
+              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                passwordValidation.hasLowercase ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {passwordValidation.hasLowercase ? (
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                ) : (
+                  <div className="w-3 h-3 rounded-full border border-gray-400"></div>
+                )}
+                One lowercase letter (a-z)
+              </div>
+              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                passwordValidation.hasNumber ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {passwordValidation.hasNumber ? (
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                ) : (
+                  <div className="w-3 h-3 rounded-full border border-gray-400"></div>
+                )}
+                One number (0-9)
+              </div>
+              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                passwordValidation.hasSpecialChar ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {passwordValidation.hasSpecialChar ? (
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                ) : (
+                  <div className="w-3 h-3 rounded-full border border-gray-400"></div>
+                )}
+                One special character (!@#$%^&*)
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Validation Errors */}
+        {validationErrors.length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+            <div className="flex items-start gap-2">
+              <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-red-800">Please fix the following issues:</p>
+                <ul className="text-xs text-red-600 space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <li key={index} className="flex items-start gap-1">
+                      <span className="text-red-500">•</span>
+                      <span>{error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Password Match Indicator */}
+        {password && confirmPassword && (
+          <div className={`flex items-center gap-2 text-xs ${
+            passwordsMatch ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {passwordsMatch ? (
+              <>
+                <CheckCircle className="w-3 h-3" />
+                <span>Passwords match!</span>
+              </>
+            ) : (
+              <>
+                <X className="w-3 h-3" />
+                <span>Passwords don't match</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

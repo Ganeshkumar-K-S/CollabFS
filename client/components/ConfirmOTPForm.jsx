@@ -2,42 +2,67 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { setUserData, setTempData, clearAllTempData, getTempData, updateUserField, clearTempData } from '../utils/localStorage'; // Adjust path as needed
+import { setUserData, getData, setTempData, getTempData, clearTempData, clearAllTempData } from '../utils/localStorage'; // Added missing imports
 
-export default function ConfirmOTPForm({
-  email
-}) {
+export default function ConfirmOTPForm() {
+  const email = getData('userEmail');
   const router = useRouter();
   const searchParams = useSearchParams();
   const [otp, setOtp] = useState('');
-  const [username, setUsername] = useState('');
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
   const [canResend, setCanResend] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-  const [step, setStep] = useState('otp'); // 'otp' or 'username'
-  const [usernameError, setUsernameError] = useState('');
+  const [isResending, setIsResending] = useState(false);
   
-  // Check if coming from signup or login
   const source = searchParams.get('from') || 'none';
   const isFromSignup = source === 'signup';
 
-  useEffect(() => {
-    const source = searchParams.get('from');
-      if (source !== 'signup') {
-          // Redirect to signup if from is missing or incorrect
-          router.replace('/auth/signup');
-      }
-  }, [searchParams, router]);
+  // API configuration
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const AUTH_API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY || 'your-api-key';
 
   useEffect(() => {
-    if (timeLeft > 0 && step === 'otp') {
+    const source = searchParams.get('from');
+    if (source !== 'signup') {
+      router.replace('/auth/signup');
+    }
+  }, [searchParams, router]);
+
+  // Send initial OTP when component mounts
+  useEffect(() => {
+    const sendInitialOTP = async () => {
+      try {
+        if (!email) {
+          console.error('No email found in local storage');
+          router.replace('/auth/signup');
+          return;
+        }
+
+        // Send OTP when component first loads
+        await sendOTP(email);
+        console.log('Initial OTP sent to:', email);
+
+      } catch (error) {
+        console.error('Failed to send initial OTP:', error);
+        alert('Failed to send verification code. Please try again.');
+        router.replace('/auth/signup');
+      }
+    };
+
+    // Only send OTP if we're on the signup flow
+    if (isFromSignup) {
+      sendInitialOTP();
+    }
+  }, [isFromSignup, router, email]); // Added email dependency
+
+  useEffect(() => {
+    if (timeLeft > 0) {
       const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timerId);
     } else if (timeLeft === 0) {
       setCanResend(true);
     }
-  }, [timeLeft, step]);
+  }, [timeLeft]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -45,157 +70,124 @@ export default function ConfirmOTPForm({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const sendOTP = async (email) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/email/signup/sendotp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': AUTH_API_KEY
+        },
+        body: JSON.stringify({ email: email }) // Fixed: wrap email in object
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to send OTP');
+      }
+
+      const data = await response.json();
+      console.log('OTP sent successfully:', data.message);
+      return data;
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      throw error;
+    }
+  };
+
   const handleConfirmOTP = async () => {
     console.log("Confirming OTP:", otp, "Source:", source);
     setIsVerifying(true);
     
     try {
-      const endpoint = isFromSignup ? '/api/verify-signup-otp' : '/api/verify-login-otp';
+      const signupEmail = getData('email'); // Fixed variable name
+      const signupUsername = getData('username'); // Fixed variable name
+      const signupHashedPassword = getData('hashedPassword'); // Fixed variable name
       
-      // Store OTP verification status temporarily
-      setTempData('otpVerified', 'true');
-      setTempData('verifiedOtp', otp);
-      setTempData('verificationTimestamp', Date.now().toString());
+      if (!signupEmail || !signupUsername || !signupHashedPassword) {
+        throw new Error('Signup data not found. Please start signup again.');
+      }
       
-      // Simulate OTP verification API call
-      // const response = await fetch(endpoint, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, otp, source })
-      // });
-      
-      setTimeout(() => {
-        setIsVerifying(false);
-        console.log("OTP verified successfully, proceeding to username selection...");
-        setStep('username'); // Move to username step
-      }, 2000);
-      
-    } catch (error) {
-      console.error('OTP verification failed:', error);
-      setIsVerifying(false);
-      // Clear temp data on error
-      clearTempData('otpVerified');
-      clearTempData('verifiedOtp');
-      clearTempData('verificationTimestamp');
-      // Handle error (show toast, etc.)
-    }
-  };
+      // Call the setuserid API endpoint
+      const response = await fetch(`${API_BASE_URL}/auth/email/setuserid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': AUTH_API_KEY
+        },
+        body: JSON.stringify({
+          email: signupEmail,
+          username: signupUsername,
+          pwd: signupHashedPassword,
+          otp: otp
+        })
+      });
 
-  const validateUsername = (username) => {
-    if (username.length < 3) {
-      return 'Username must be at least 3 characters long';
-    }
-    if (username.length > 20) {
-      return 'Username must be less than 20 characters';
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return 'Username can only contain letters, numbers, and underscores';
-    }
-    return '';
-  };
-
-  const handleCompleteRegistration = async () => {
-    const error = validateUsername(username);
-    if (error) {
-      setUsernameError(error);
-      return;
-    }
-
-    console.log("Creating account with username:", username);
-    setIsCreatingAccount(true);
-    setUsernameError('');
-    
-    try {
-      // Complete account creation with username
-      const endpoint = '/api/complete-registration';
-      
-      // Get temporary verification data
-      const otpVerified = getTempData('otpVerified');
-      const verifiedOtp = getTempData('verifiedOtp');
-      
-      if (otpVerified !== 'true' || !verifiedOtp) {
-        throw new Error('OTP verification expired. Please verify again.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'OTP verification failed');
       }
 
-      // Get any existing signup data from temp storage
-      const signupEmail = getTempData('signupEmail');
-      const tempPassword = getTempData('tempPassword'); // If stored during signup
+      const data = await response.json();
       
-      // Simulate account creation API call
-      // const response = await fetch(endpoint, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, username, otp: verifiedOtp })
-      // });
-      
-      setTimeout(() => {
+      if (data.success) {
         // Store complete user data in localStorage
         const userData = {
-          email: email,
-          username: username,
-          hashedPassword: getTempData('tempHashedPassword') || btoa('temp-password'), // Get from temp or generate
-          jwtToken: 'jwt-token-' + Date.now() // Mock JWT from API response
+          email: data.session_details.email,
+          username: data.session_details.username,
+          hashedPassword: signupHashedPassword,
+          jwtToken: data.token
         };
-
-        // Save user data permanently
-        setUserData(userData);
-
-        // Store additional temp data for post-registration flow
-        setTempData('registrationComplete', 'true');
-        setTempData('registrationTimestamp', Date.now().toString());
-
-        // Clear OTP-related temp data
-        clearTempData('otpVerified');
-        clearTempData('verifiedOtp');
-        clearTempData('verificationTimestamp');
-        clearTempData('tempPassword');
-        clearTempData('tempHashedPassword');
-
-        setIsCreatingAccount(false);
         console.log("Account created successfully, user data stored, redirecting...");
         router.push('/home');
-      }, 2000);
+      } else {
+        throw new Error(data.message || 'Account creation failed');
+      }
       
     } catch (error) {
-      console.error('Account creation failed:', error);
-      setIsCreatingAccount(false);
-      setUsernameError('Username may be taken. Please try another.');
+      console.error('OTP verification and account creation failed:', error);
+      setIsVerifying(false);
       
       // Clear temp data on error
-      clearTempData('otpVerified');
-      clearTempData('verifiedOtp');
-      clearTempData('verificationTimestamp');
+      clearAllTempData();
+      
+      // Handle error (show toast, redirect to signup, etc.)
+      alert(error.message || 'Verification failed. Please try again.');
+      router.push('/auth/signup?error=verification_failed');
     }
   };
 
   const handleResend = async () => {
     console.log("Resending OTP for signup");
-    setTimeLeft(120);
-    setCanResend(false);
+    setIsResending(true);
     
     try {
-      const endpoint = '/api/resend-signup-otp';
+      // Get email from localStorage (since we're using getData consistently)
+      const signupEmail = getData('email'); // Changed from getTempData to getData
       
-      // Clear previous OTP verification data
-      clearTempData('otpVerified');
-      clearTempData('verifiedOtp');
-      clearTempData('verificationTimestamp');
+      if (!signupEmail) {
+        throw new Error('Email not found. Please start signup again.');
+      }
+      
+      // Call the send OTP API
+      await sendOTP(signupEmail);
+      
+      // Reset timer and state
+      setTimeLeft(120);
+      setCanResend(false);
       
       // Store resend attempt
       setTempData('lastOtpResend', Date.now().toString());
       
-      // Add your OTP resend logic here
-      // await fetch(endpoint, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, source: 'signup' })
-      // });
+      console.log('Signup OTP resent to:', signupEmail);
       
-      console.log('Signup OTP resent');
     } catch (error) {
       console.error('Failed to resend OTP:', error);
+      alert(error.message || 'Failed to resend OTP. Please try again.');
       setTimeLeft(0);
       setCanResend(true);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -206,112 +198,15 @@ export default function ConfirmOTPForm({
     }
   };
 
-  const handleUsernameChange = (e) => {
-    const value = e.target.value.replace(/[^a-zA-Z0-9_]/g, ''); // Only allow letters, numbers, underscores
-    setUsername(value);
-    if (usernameError) {
-      setUsernameError(''); // Clear error when user starts typing
-    }
-  };
-
-  const handleBackToOTP = () => {
-    setStep('otp');
-    setUsername('');
-    setUsernameError('');
-    // Clear any username-related temp data
-    clearTempData('tempUsername');
-  };
-
-  // Store username temporarily as user types (optional)
-  useEffect(() => {
-    if (username && step === 'username') {
-      setTempData('tempUsername', username);
-    }
-  }, [username, step]);
-
-  if (step === 'username') {
-    return (
-      <div className="space-y-6 font-sans">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-semibold text-foreground">
-            Choose Your Username
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Pick a unique username for your account
-          </p>
-          <p className="text-sm font-medium text-foreground">{email}</p>
-        </div>
-
-        {/* Username Input */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm text-foreground">Username</label>
-            <input
-              type="text"
-              placeholder="Enter username"
-              value={username}
-              onChange={handleUsernameChange}
-              className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground ${
-                usernameError ? 'border-red-500' : 'border-border'
-              }`}
-              maxLength={20}
-            />
-            {usernameError && (
-              <p className="text-sm text-red-500">{usernameError}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              3-20 characters, letters, numbers, and underscores only
-            </p>
-          </div>
-
-          {/* Complete Registration Button */}
-          <button
-            onClick={handleCompleteRegistration}
-            disabled={username.length < 3 || isCreatingAccount}
-            className={`w-full py-2 rounded-md text-sm transition-colors flex items-center justify-center gap-2 ${
-              (username.length >= 3 && !isCreatingAccount)
-                ? "bg-black hover:bg-gray-900 text-white"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {isCreatingAccount ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating Account...
-              </>
-            ) : (
-              'Complete Registration'
-            )}
-          </button>
-
-          {/* Back Button */}
-          <button
-            onClick={handleBackToOTP}
-            className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Back to verification
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold text-foreground">
-          {isFromSignup ? 'Verify Your Email' : 'Verify Your Email'}
+          Verify Your Email
         </h2>
         <p className="text-sm text-muted-foreground">
-          {isFromSignup 
-            ? "We've sent a 6-digit verification code to your email"
-            : "We've sent a 6-digit verification code to your email"
-          }
+          We've sent a 6-digit verification code to your email
         </p>
         <p className="text-sm font-medium text-foreground">{email}</p>
       </div>
@@ -337,14 +232,24 @@ export default function ConfirmOTPForm({
           </span>
           <button
             onClick={handleResend}
-            disabled={!canResend}
-            className={`font-medium transition-colors ${
-              canResend
+            disabled={!canResend || isResending}
+            className={`font-medium transition-colors flex items-center gap-1 ${
+              (canResend && !isResending)
                 ? "text-primary hover:text-primary/80 cursor-pointer"
                 : "text-muted-foreground cursor-not-allowed"
             }`}
           >
-            Resend Code
+            {isResending ? (
+              <>
+                <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Sending...
+              </>
+            ) : (
+              'Resend Code'
+            )}
           </button>
         </div>
 
@@ -367,7 +272,7 @@ export default function ConfirmOTPForm({
               Verifying...
             </>
           ) : (
-            'Verify Code'
+            'Complete Registration'
           )}
         </button>
       </div>

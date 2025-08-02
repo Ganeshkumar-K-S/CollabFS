@@ -10,7 +10,8 @@ export const setUserData = (userData) => {
         console.log('User data saved to localStorage:', {
             email: userData.email,
             username: userData.username,
-            hasToken: !!userData.jwtToken
+            hasToken: !!userData.jwtToken,
+            hashedPassword: !!userData.hashedPassword
         });
     } catch (error) {
         console.error('Failed to save user data to localStorage:', error);
@@ -95,6 +96,16 @@ export const isUserLoggedIn = () => {
     }
 }
 
+export const getData = (key) => {
+    try {
+        console.log(`Getting data for key: ${key}`);
+        console.log('Current localStorage:', localStorage);
+        return localStorage.getItem(key) || '';
+    } catch (error) {
+        console.error('Failed to get data from localStorage:', error);
+        return '';
+    }
+}
 // Temporary storage for password reset/change flows
 export const setTempData = (key, value) => {
     try {

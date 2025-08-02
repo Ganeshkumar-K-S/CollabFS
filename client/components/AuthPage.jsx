@@ -10,17 +10,17 @@ import { useAuth } from './AuthWrapper'; // Import the auth context
 
 export default function AuthPage(props) {
   const router = useRouter();
-  const auth = useAuth(); // Use auth context instead of props
+  const auth = useAuth(); 
   const {
     type,
-    // Remove these from props since we're using context
-    // email, setEmail, password, setPassword, etc.
   } = props;
 
   // Get auth state from context
   const {
     email,
     setEmail,
+    username,
+    setUsername,
     password,
     setPassword,
     confirmPassword,
@@ -95,6 +95,8 @@ export default function AuthPage(props) {
           <SignupForm
             email={email}
             setEmail={setEmail}
+            username={username}
+            setUsername={setUsername}
             password={password}
             setPassword={setPassword}
             confirmPassword={confirmPassword}

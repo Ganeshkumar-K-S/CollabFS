@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status,Request,APIRouter,BackgroundTasks, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from starlette.status import HTTP_403_FORBIDDEN
 from passlib.context import CryptContext
 from app.db.connection import db
@@ -14,7 +14,8 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 from urllib.parse import urlencode
 from fastapi.responses import RedirectResponse
-
+import warnings
+warnings.filterwarnings("ignore", message="Valid config keys have changed in V2")
 
 file_engine = APIRouter(prefix="/auth")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -44,53 +45,59 @@ oauth.register(
 )
 
 class LoginModel(BaseModel):
-    email:str
-    pwd:str
+    email: str
+    pwd: str
 
 class SignupModel(BaseModel):
-    email:str
-    pwd:str
-    
-class Signup(BaseModel):
-    email:str
-    pwd:str
-    username:str
-    
+    email: str
+    username: str
+    pwd: str
+
+class UserModel(BaseModel):
+    email: str
+    username: str
+    pwd: str
+    otp: str
 
 def verify_auth_api(request : Request):
     expected_key=os.getenv('AUTH_API_KEY')
-    key_name="x-api-key"
-    response_key=request.headers.get(key_name)
-    if expected_key!=response_key:
+    key_name = "x-api-key"
+    response_key = request.headers.get(key_name)
+    if expected_key != response_key:
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN,
             detail="Unauthorized access"
         )
 
-@file_engine.post("/email/signup",dependencies=[Depends(verify_auth_api)])
-async def signup_api(request:SignupModel):
+@file_engine.post("/email/signup", dependencies=[Depends(verify_auth_api)])
+async def signup_api(response: SignupModel):
     try:
-        existing_user=await db.user.findone({"email":request.email})
+        email = response.email
+        username = response.username
+        existing_user = await db.user.find_one({"email": email})
+        print(f"Existing user: {existing_user}")
         if existing_user:
             return {
-                "success":False,
-                "message":"User already found"
-                }
-        
+                "success": False,
+                "message": "User already found"
+            }
+        return {
+            "success": True,
+            "session_details": {
+                "email": response.email,
+                "username": response.username,
+                "hashed_password": auth_util.get_password_hash(response.pwd)
+            }
+        }
     except Exception as e:
+        print(f"Error during signup: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Invalid user data"
         )
-    return {
-            "success":True,
-            "session_details":{"email":request.email,
-                               "username":request.username ,
-                               "hashed_password":auth_util.get_password_hash(request.pwd)}
-            }
         
-@file_engine.post("email/signup/sendotp",dependencies=[Depends(verify_auth_api)])
-async def sendotp_api(email:str,background_tasks: BackgroundTasks):
+@file_engine.post("/email/signup/sendotp",dependencies=[Depends(verify_auth_api)])
+async def sendotp_api(email:str):
     otp=auth_util.generate_otp()
     await db.otp_store.update_one(
             {"email": email}, 
@@ -111,15 +118,15 @@ async def sendotp_api(email:str,background_tasks: BackgroundTasks):
         subtype="html"
     )
     fm = FastMail(mail_config)
-    background_tasks.add_task(fm.send_message, message, template_name="otp_template.html")
+    fm.send_message(message, template_name="otp_template.html")
     return {"message": "OTP sent successfully"}
 
 
 @file_engine.post("/email/setuserid", dependencies=[Depends(verify_auth_api)])
-async def setuserid_api(request: Signup, otp: str):
+async def setuserid_api(request: UserModel):
     try:
-        otp_entry = await db.otp_store.find_one({"email": request.email, "otp": otp})
-        
+        otp_entry = await db.otp_store.find_one({"email": request.email, "otp": request.otp})
+
         if not otp_entry:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -173,7 +180,7 @@ async def setuserid_api(request: Signup, otp: str):
         )
 
 
-@file_engine.post("email/login",dependencies=[Depends(verify_auth_api)]) 
+@file_engine.post("/email/login",dependencies=[Depends(verify_auth_api)]) 
 async def login_api(request:LoginModel):
     try:       
         user_doc = await db.user.find_one({"email": request.email})

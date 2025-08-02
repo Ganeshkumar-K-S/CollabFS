@@ -33,6 +33,10 @@ async def list_collections():
     collection_names = await db.list_collection_names()
     return {"collections": collection_names}
 
+@app.get("/users")
+async def list_users():
+    users = await db.user.find().to_list(length=None)
+    return {"users": users}
 # ✅ Include all routers
 app.include_router(file_engine)
 app.include_router(chat_engine)
