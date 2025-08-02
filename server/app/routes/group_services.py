@@ -1,51 +1,80 @@
-from fastapi import APIRouter,Request,HTTPException,Depends
+from fastapi import APIRouter, Request, HTTPException, Depends
 from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
-from app.db.connection import get_db
-from app.db.collections import group
+from app.db.connection import get_db 
+from app.db.collections import group, groupmembers, activities 
 from app.models.group_model import GroupCreateModel
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from datetime import datetime, timezone
 import uuid
 import os
-from datetime import datetime,timezone
 
 load_dotenv()
 
-group_engine=APIRouter(prefix="/group")
+group_engine = APIRouter(prefix="/group")
 
 
-def verify_file_api(request : Request):
-    expected_key=os.getenv('GROUP_API_KEY')
-    key_name="x-api-key"
-    response_key=request.headers.get(key_name)
-    if expected_key!=response_key:
+def verify_file_api(request: Request):
+    expected_key = os.getenv('GROUP_API_KEY')
+    key_name = "x-api-key"
+    response_key = request.headers.get(key_name)
+    if expected_key != response_key:
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN,
             detail="Unauthorized access"
         )
 
-@group_engine.post("/create",dependencies=[Depends(get_db)])
-async def create_group(
-    create_data : GroupCreateModel,
-    db = Depends(get_db)
-):
-    try:
-        user_id=create_data.user_id
-        groupname=create_data.name 
-        randid=uuid.uuid4().hex
 
-        group_data={
-            "_id:": (groupname + randid),
-            "name": groupname,
-            "description" : "",
-            "createdBy" : user_id,
-            "createdAt" : datetime.now(timezone.utc)
+@group_engine.post("/create", dependencies=[Depends(verify_file_api)])
+async def create_group(
+    create_data: GroupCreateModel,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    session = await db.client.start_session()
+    try:
+        async with session.start_transaction():
+            user_id = create_data.user_id
+            groupname = create_data.name
+            print(groupname)
+            print(type(groupname))
+            group_id = groupname + "_" + uuid.uuid4().hex
+            print(group_id)
+            print(type(group_id))
+            group_data = {
+                "_id": group_id,
+                "gname": groupname,
+                "description": "",
+                "createdBy": user_id,
+                "createdAt": datetime.now(timezone.utc),
+                "starred" : False
+            }
+            await db.group.insert_one(group_data, session=session)
+
+            member_data = {
+                "userId": user_id,
+                "groupId": group_id,
+                "role": "owner",
+                "joinedAt": datetime.now(timezone.utc)
+            }
+            await db.groupmembers.insert_one(member_data, session=session)
+
+            activity_data = {
+                "userId": user_id,
+                "groupId": group_id,
+                "activityType": "GROUP_CREATED",
+                "fileId": None,
+                "timestamp": datetime.now(timezone.utc)
+            }
+            await db.activities.insert_one(activity_data, session=session)
+
+        return {
+            "message": "Group created successfully",
+            "groupId": group_id
         }
 
-        await db.group.insert_one(
-            group_data
-        )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        print(e)
+        raise HTTPException(status_code=500, detail=f"Failed to create group: {str(e)}")
+
+    finally:
+        await session.end_session()
