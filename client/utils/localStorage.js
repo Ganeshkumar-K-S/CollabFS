@@ -46,20 +46,17 @@ export const updateUserField = (field, value) => {
 
 export const clearUserData = () => {
     try {
-        localStorage.removeItem('userEmail')
-        localStorage.removeItem('username')
-        localStorage.removeItem('hashedPassword')
-        localStorage.removeItem('jwtToken')
-        console.log('User data cleared from localStorage');
+        localStorage.clear();
     } catch (error) {
         console.error('Failed to clear user data:', error);
     }
-}
+};
+
 
 export const isUserLoggedIn = () => {
     try {
         const token = localStorage.getItem('jwtToken');
-        
+
         if (!token) {
             console.log('No JWT token found');
             return false;

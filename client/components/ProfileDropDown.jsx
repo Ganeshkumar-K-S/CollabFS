@@ -12,15 +12,7 @@ import {
 import ProfilePicture from './ProfilePicture'
 
 // ProfileDropdown component using shadcn/ui
-const ProfileDropdown = ({ userName }) => {
-  const handleLogout = () => {
-    console.log('Logging out...')
-    window.location.href = '/auth/login'
-  }
-
-  const handleSettings = () => {
-    window.location.href = '/profile'
-  }
+const ProfileDropdown = ({ userName , size , handleLogout , handleSettings}) => {
 
   // Function to truncate username if too long (for dropdown display)
   const truncateUsername = (name) => {

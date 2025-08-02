@@ -53,8 +53,8 @@ const HomePage = () => {
   };
 
   const handleLogoutClick = () => {
-    clearUserData();             // Clear localStorage user data
-    router.push('/auth/login');  // Redirect to login
+      clearUserData();              
+      router.push('/auth/login');
   };
 
   // Calculate profile picture size based on screen size
@@ -112,8 +112,8 @@ const HomePage = () => {
               <ProfileDropdown 
                 userName={userName} 
                 size={profileSize} 
-                onSettingsClick={handleSettingsClick}
-                onLogoutClick={handleLogoutClick}
+                handleSettings={handleSettingsClick}
+                handleLogout={handleLogoutClick}
               />
             )}
           </div>

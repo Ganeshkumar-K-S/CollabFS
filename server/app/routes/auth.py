@@ -246,7 +246,7 @@ async def auth(request: Request):
         jwt_token = auth_util.generate_token({
             "id": user_id,
             "name": username,
-            "email": email
+            "email": email,
         })
 
         # Construct redirect URL to frontend with token and user info
