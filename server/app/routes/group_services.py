@@ -6,7 +6,7 @@ from app.db.collections import group, groupmembers, activities
 from app.models.group_model import GroupCreateModel, GroupModifyModel, GroupSearchModel, GroupStarModel
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime, timezone
-from bson import ObjectId
+from bson import ObjectId , int64
 import uuid
 import os
 from app.utils.group_utils import time_ago
@@ -35,7 +35,7 @@ async def create_group(
     session = await db.client.start_session()
     try:
         async with session.start_transaction():
-            user_id = create_data.user_id
+            user_id = create_data.userId
             groupname = create_data.name
             print(groupname)
             print(type(groupname))

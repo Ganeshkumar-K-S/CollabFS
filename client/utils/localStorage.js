@@ -95,8 +95,6 @@ export const isUserLoggedIn = () => {
 
 export const getData = (key) => {
     try {
-        console.log(`Getting data for key: ${key}`);
-        console.log('Current localStorage:', localStorage);
         return localStorage.getItem(key) || '';
     } catch (error) {
         console.error('Failed to get data from localStorage:', error);

@@ -13,8 +13,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus } from 'lucide-react';
+import {getData} from '@/utils/localStorage'
 
-const GroupDailog = ({ isDialogOpen, setIsDialogOpen, groupName, setGroupName, groupDescription, setGroupDescription, handleCreateGroup, handleDialogClose }) => {
+const GroupDailog = ({ isDialogOpen, setIsDialogOpen, groupName, setGroupName, groupDescription, setGroupDescription, handleDialogClose }) => {
+  const userId = getData('userId');
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BACKEND_URL}/group/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.NEXT_PUBLIC_GROUP_API_KEY,
+        },
+        body: JSON.stringify({
+          userId: userId,
+          name: groupName,
+          description: groupDescription,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Group creation failed");
+      }
+
+      console.log("Group created:", data);
+      setIsDialogOpen(false);
+      setGroupName("");
+      setGroupDescription("");
+    } catch (err) {
+      console.error("Error creating group:", err.message);
+    }
+  };
+
   return (
     <div>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -54,7 +87,11 @@ const GroupDailog = ({ isDialogOpen, setIsDialogOpen, groupName, setGroupName, g
                 id="group-description"
                 placeholder="Enter group description (optional)"
                 value={groupDescription}
-                onChange={(e) => setGroupDescription(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value.length <= 1000) {
+                    setGroupDescription(e.target.value);
+                  }
+                }}
                 className="col-span-3 min-h-[80px]"
               />
             </div>

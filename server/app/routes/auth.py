@@ -194,6 +194,7 @@ async def login_api(request: LoginModel):
             {"$set": {"lastAccessed": datetime.now(timezone.utc)}}
         )
         
+        print(auth_util.get_password_hash(request.pwd))
         is_password_valid = auth_util.verify_password(request.pwd, user.pwd)
         
         if not is_password_valid:
@@ -249,7 +250,8 @@ async def auth(request: Request):
                 "email": email,
                 "pwd": "",
                 "createAt": datetime.now(timezone.utc),
-                "lastAccessed": datetime.now(timezone.utc)
+                "lastAccessed": datetime.now(timezone.utc),
+                "storageUsed": 0
             })
         else:
             user_id = user_doc["_id"]
@@ -286,4 +288,5 @@ async def auth(request: Request):
 @file_engine.get("/login")
 async def login_via_google(request: Request):
     redirect_uri = str(request.url_for("auth"))
+    print("Redirect URI:", redirect_uri)
     return await oauth.google.authorize_redirect(request, redirect_uri)

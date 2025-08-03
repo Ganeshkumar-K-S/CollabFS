@@ -8,6 +8,6 @@ class User(BaseModel):
     email:str =Field(...,description="Email")
     createAt:datetime=Field(...,description="User signup time")
     lastAccessed:datetime=Field(...,description="last login time")
-
+    storageUsed:int = Field(default=0, description="User storage")
     class Config:
         validate_by_name = True

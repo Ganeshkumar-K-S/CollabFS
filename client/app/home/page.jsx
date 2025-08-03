@@ -62,27 +62,6 @@ const HomePage = () => {
       router.push('/auth/login');
   };
 
-  // Handle group creation
-  const handleCreateGroup = () => {
-    if (groupName.trim()) {
-      const newGroup = {
-        id: Date.now(), // Simple ID generation
-        name: groupName.trim(),
-        description: groupDescription.trim(),
-        members: 1, // Default to 1 member (creator)
-        files: 0, // Default to 0 files
-        created: new Date().toLocaleDateString(),
-      };
-      
-      setGroups(prevGroups => [...prevGroups, newGroup]);
-      
-      // Reset form and close dialog
-      setGroupName('');
-      setGroupDescription('');
-      setIsDialogOpen(false);
-    }
-  };
-
   // Handle dialog close
   const handleDialogClose = () => {
     setGroupName('');
@@ -184,7 +163,6 @@ const HomePage = () => {
         setGroupName={setGroupName}
         groupDescription={groupDescription}
         setGroupDescription={setGroupDescription}
-        handleCreateGroup={handleCreateGroup}
         handleDialogClose={handleDialogClose}
       />
     </div>
