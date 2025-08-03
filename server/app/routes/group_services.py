@@ -60,7 +60,7 @@ async def create_group(
                 "role": "owner",
                 "joinedAt": datetime.now(timezone.utc)
             }
-            await db.groupmembers.insert_one(member_data, session=session)
+            await db.groupMembers.insert_one(member_data, session=session)
 
             activity_data = {
                 "userId": user_id,
@@ -163,7 +163,7 @@ async def search(
                 try:
                     if name=="__empty__":
                         name=""
-                    cursor=db.groupmembers.aggregate(
+                    cursor=db.groupMembers.aggregate(
                          [
                             {
                                 "$match" : {
@@ -269,52 +269,120 @@ async def get_user_storage(
                detail=str(e)
           )
 
-@group_engine.get("/groupstorage/{user_id}",dependencies=[Depends(verify_group_api)])
+@group_engine.get("/groupstorage/{user_id}", dependencies=[Depends(verify_group_api)])
 async def get_group_storage(
-     user_id,
-     db : AsyncIOMotorDatabase = Depends(get_db)
+    user_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-     try:
-          groups_data=db.groupmember.aggregate([
-               {
-                    "$match":{
-                         "userId" : user_id
+    pipeline = [
+        {
+            "$match": {
+                "userId": user_id,
+                "role": "Owner"
+            }
+        },
+        {
+            "$lookup": {
+                "from": "group",
+                "localField": "groupId",
+                "foreignField": "_id",
+                "as": "groupInfo"
+            }
+        },
+        { "$unwind": "$groupInfo" },
+        {
+            "$lookup": {
+                "from": "files",
+                "localField": "groupId",
+                "foreignField": "groupId",
+                "as": "files"
+            }
+        },
+        {
+            "$addFields": {
+                "categorized": {
+                    "$map": {
+                        "input": "$files",
+                        "as": "file",
+                        "in": {
+                            "type": {
+                                "$switch": {
+                                    "branches": [
+                                        {
+                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^application|^text" } },
+                                            "then": "documents"
+                                        },
+                                        {
+                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^video/" } },
+                                            "then": "videos"
+                                        },
+                                        {
+                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^image/" } },
+                                            "then": "photos"
+                                        },
+                                        {
+                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^audio/" } },
+                                            "then": "audio"
+                                        }
+                                    ],
+                                    "default": "others"
+                                }
+                            },
+                            "size": "$$file.size"
+                        }
                     }
-               },
-               {
-                    "$match":{
-                         "role" : "Owner"
+                }
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "groupId": "$groupId",
+                "groupName": "$groupInfo.gname",
+                "storageUsed": "$groupInfo.storageUsed",
+                "frequency": {
+                    "$arrayToObject": {
+                        "$map": {
+                            "input": [ "documents", "videos", "photos", "audio", "others" ],
+                            "as": "category",
+                            "in": {
+                                "k": "$$category",
+                                "v": {
+                                    "count": {
+                                        "$size": {
+                                            "$filter": {
+                                                "input": "$categorized",
+                                                "as": "item",
+                                                "cond": { "$eq": [ "$$item.type", "$$category" ] }
+                                            }
+                                        }
+                                    },
+                                    "size": {
+                                        "$sum": {
+                                            "$map": {
+                                                "input": {
+                                                    "$filter": {
+                                                        "input": "$categorized",
+                                                        "as": "item",
+                                                        "cond": { "$eq": [ "$$item.type", "$$category" ] }
+                                                    }
+                                                },
+                                                "as": "item",
+                                                "in": "$$item.size"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-               },
-               {
-                    "$lookup":{
-                         "from":"group",
-                         "localField":"groupId",
-                         "foreignField":"_id",
-                         "as":"right"
-                    }
-               },
-               {
-                    "$unwind":"right"
-               }
-          ])
+                }
+            }
+        }
+    ]
 
-          result=groups_data.to_list(length=None)
-
-          return [
-               {
-                    "groupId":doc["groupId"],
-                    "groupName":doc["right"]["gname"],
-                    "storageUsed":doc["storageUsed"]
-               }
-               for doc in result
-          ]
-     
-     except Exception as e:
-          raise HTTPException(
-               status_code=500,
-               detail=str(e)
-          )
+    result = await db.groupMembers.aggregate(pipeline).to_list(length=None)
+    return result
 
 @group_engine.post("/staragroup", dependencies=[Depends(verify_group_api)])
 async def star_a_group(
