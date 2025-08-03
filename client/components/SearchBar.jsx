@@ -7,7 +7,7 @@ import {getData} from '@/utils/localStorage';
 // Search Bar Component
 const SearchBar = ({ isSmall = false , groups , setGroups }) => {
   const [searchValue, setSearchValue] = useState('');
-  const id = 'test_user_123';
+  const id = getData('userId');
 
   const API_KEY = process.env.NEXT_PUBLIC_GROUP_API_KEY;
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://localhost:8000';

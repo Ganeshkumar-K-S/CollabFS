@@ -11,7 +11,8 @@ import CustomTooltip from '@/components/CustomTooltip';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import logo from '@/assets/logo.svg'; 
-import { clearUserData } from '@/utils/localStorage'; 
+import { clearUserData , getData} from '@/utils/localStorage'; 
+
 
 // Header Component
 const Header = ({ isSmall = false }) => {
@@ -32,9 +33,10 @@ const Header = ({ isSmall = false }) => {
 // Main Drive Home Page Component
 const HomePage = () => {
   const [groups , setGroups] = useState([]); // State to hold groups
-  const [activeSection, setActiveSection] = useState('home');
+  const [activeSection, setActiveSection] = useState('starred');
   const [isMobile, setIsMobile] = useState(false);
-  const userName = 'Harivansh B';
+  const userName = getData('username') || 'User'; // Get username from localStorage
+  const userEmail = getData('userEmail') || 'Email'; // Get email from localStorage
   const router = useRouter();
 
   // Check screen size

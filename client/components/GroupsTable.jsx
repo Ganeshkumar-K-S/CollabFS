@@ -1,11 +1,22 @@
 'use client';
 
-import React from 'react';
-import {MoreHorizontal, Folder, Clock, Users, StarIcon, Crown, User, Eye} from 'lucide-react';
+import React, { useState } from 'react';
+import {Folder, Clock, Users, StarIcon, Crown, User, Eye} from 'lucide-react';
 import CustomTooltip from '@/components/CustomTooltip';
+import { getData } from '@/utils/localStorage';
 
 // Groups Table Component
-const GroupsTable = ({ isSmall = false, starred = false, groups = [], onToggleStar }) => {
+const GroupsTable = ({ 
+  isSmall = false, 
+  starred = false, 
+  groups = [], 
+  onToggleStar,
+  onGroupsUpdate // Callback to update parent component's groups state
+}) => {
+  const [loading, setLoading] = useState(false);
+  const userId = getData('userId'); // Get userId from localStorage
+  const apiKey = process.env.NEXT_PUBLIC_GROUP_API_KEY; // Get API key from environment variable
+
   const getRoleIcon = (role) => {
     switch (role.toLowerCase()) {
       case 'owner':
@@ -37,6 +48,122 @@ const GroupsTable = ({ isSmall = false, starred = false, groups = [], onToggleSt
         return 'text-gray-600 bg-gray-50';
       default:
         return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  // Function to handle starring a group
+  const handleStar = async (groupId) => {
+    if (!userId || !apiKey) {
+      console.error('Missing userId or apiKey for star operation');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/group/staragroup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          userId: userId,
+          groupId: groupId
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update the local groups state
+        const updatedGroups = groups.map(group => 
+          group.groupId === groupId 
+            ? { ...group, starred: true }
+            : group
+        );
+        
+        // Call parent callback to update groups
+        if (onGroupsUpdate) {
+          onGroupsUpdate(updatedGroups);
+        }
+        
+        // Call the original toggle function if provided
+        if (onToggleStar) {
+          onToggleStar(groupId);
+        }
+
+        console.log('Group starred successfully:', data.message);
+      } else {
+        console.error('Failed to star group:', data.detail || data.message);
+      }
+    } catch (error) {
+      console.error('Error starring group:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to handle unstarring a group
+  const handleUnstar = async (groupId) => {
+    if (!userId || !apiKey) {
+      console.error('Missing userId or apiKey for unstar operation');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/group/unstaragroup', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          userId: userId,
+          groupId: groupId
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update the local groups state
+        const updatedGroups = groups.map(group => 
+          group.groupId === groupId 
+            ? { ...group, starred: false }
+            : group
+        );
+        
+        // Call parent callback to update groups
+        if (onGroupsUpdate) {
+          onGroupsUpdate(updatedGroups);
+        }
+        
+        // Call the original toggle function if provided
+        if (onToggleStar) {
+          onToggleStar(groupId);
+        }
+
+        console.log('Group unstarred successfully:', data.message);
+      } else {
+        console.error('Failed to unstar group:', data.detail || data.message);
+      }
+    } catch (error) {
+      console.error('Error unstarring group:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Combined toggle function that decides whether to star or unstar
+  const handleToggleStar = async (groupId) => {
+    const group = groups.find(g => g.groupId === groupId);
+    if (!group) return;
+
+    if (group.starred) {
+      await handleUnstar(groupId);
+    } else {
+      await handleStar(groupId);
     }
   };
 
@@ -87,8 +214,12 @@ const GroupsTable = ({ isSmall = false, starred = false, groups = [], onToggleSt
                   <div className="flex items-center justify-end space-x-1 md:space-x-2">
                     <CustomTooltip content={group.starred ? "Remove from starred" : "Add to starred"}>
                       <button
-                        onClick={() => onToggleStar && onToggleStar(group.groupId)}
-                        className={`p-1 rounded hover:bg-gray-100 transition-colors ${
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent row click if table row is clickable
+                          handleToggleStar(group.groupId);
+                        }}
+                        disabled={loading}
+                        className={`p-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                           group.starred ? 'text-orange-500' : 'text-gray-400'
                         }`}
                       >
@@ -102,6 +233,13 @@ const GroupsTable = ({ isSmall = false, starred = false, groups = [], onToggleSt
           </tbody>
         </table>
       </div>
+      
+      {/* Loading indicator */}
+      {loading && (
+        <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
+          <div className="text-sm text-gray-500">Updating...</div>
+        </div>
+      )}
     </div>
   );
 };

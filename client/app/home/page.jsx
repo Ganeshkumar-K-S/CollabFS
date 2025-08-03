@@ -13,6 +13,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import logo from '@/assets/logo.svg'; 
 import { clearUserData } from '@/utils/localStorage'; 
+import { getData } from '@/utils/localStorage';
 
 // Header Component
 const Header = ({ isSmall = false }) => {
@@ -38,7 +39,8 @@ const HomePage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
-  const userName = 'Harivansh B';
+  const userName = getData('username') || 'User'; // Get username from localStorage
+  const userEmail = getData('email') || 'Email';
   const router = useRouter();
 
   // Check screen size
@@ -68,7 +70,7 @@ const HomePage = () => {
     setGroupDescription('');
     setIsDialogOpen(false);
   };
-
+  
   // Calculate profile picture size based on screen size
   const getProfileSize = () => {
     if (typeof window !== 'undefined') {

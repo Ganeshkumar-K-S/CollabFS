@@ -3,7 +3,10 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, User, Mail, Lock, Eye, EyeOff } from 'lucide-react'
-import ProfilePicture from '@/components/ProfilePicture'
+import ProfilePicture from '@/components/ProfilePicture';
+import { getData } from '@/utils/localStorage';
+import { clearUserData } from '@/utils/localStorage';
+
 const Header = () => (
   <div className="flex items-center">
     <h1 className="text-xl font-semibold">Profile Settings</h1>
@@ -11,9 +14,11 @@ const Header = () => (
 )
 
 const ProfilePage = () => {
+  const username = getData('username') || 'User'; // Get username from localStorage
+  const email = getData('userEmail') || 'Email';
   const [formData, setFormData] = useState({
-    username: 'Harivansh B',
-    email: 'harivansh@example.com',
+    username: username,
+    email: email,
     password: '',
     confirmPassword: ''
   });

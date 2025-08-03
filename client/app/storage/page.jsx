@@ -12,6 +12,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import logo from '@/assets/logo.svg'; 
 import { clearUserData } from '@/utils/localStorage';
+import { getData } from '@/utils/localStorage';
 
 // Header Component
 const Header = ({ isSmall = false }) => {
@@ -33,7 +34,8 @@ const Header = ({ isSmall = false }) => {
 const StoragePage = () => {
   const [activeSection, setActiveSection] = useState('storage');
   const [isMobile, setIsMobile] = useState(false);
-  const userName = 'Harivansh B';
+  const userName = getData('username') || 'User'; // Get username from localStorage
+  const userEmail = getData('email') || 'Email';
   const router = useRouter();
 
   // Check screen size
