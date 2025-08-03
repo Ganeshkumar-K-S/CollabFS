@@ -15,6 +15,7 @@ class Group(BaseModel):
 class GroupCreateModel(BaseModel):
     userId : str = Field(...,description="group creator id")
     name : str = Field(...,description="name of the group")
+    description : str = Field(...,description="description for the group")
 
 class GroupModifyModel(BaseModel): 
     userId : str = Field(...,description="group creator id")

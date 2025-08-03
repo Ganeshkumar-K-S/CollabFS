@@ -45,7 +45,7 @@ async def create_group(
             group_data = {
                 "_id": group_id,
                 "gname": groupname,
-                "description": "",
+                "description": create_data.description,
                 "createdBy": user_id,
                 "createdAt": datetime.now(timezone.utc),
                 "starred" : False
