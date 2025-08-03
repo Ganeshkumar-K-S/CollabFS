@@ -26,3 +26,6 @@ class GroupSearchModel(BaseModel):
     userId : str = Field(...,description="user id")
     searchstr : str = Field("",description="string to be searched")
     
+class GroupStarModel(BaseModel):
+    userId : str = Field(...,description="user id")
+    groupId : str = Field(...,description="group id that should be starred")

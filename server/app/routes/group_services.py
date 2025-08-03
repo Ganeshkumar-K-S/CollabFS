@@ -3,7 +3,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
 from app.db.connection import get_db 
 from app.db.collections import group, groupmembers, activities 
-from app.models.group_model import GroupCreateModel, GroupModifyModel, GroupSearchModel
+from app.models.group_model import GroupCreateModel, GroupModifyModel, GroupSearchModel, GroupStarModel
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -313,3 +313,72 @@ async def get_group_storage(
                status_code=500,
                detail=str(e)
           )
+
+@group_engine.post("/staragroup", dependencies=[Depends(verify_group_api)])
+async def star_a_group(
+    data: GroupStarModel,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    try:
+        async with await db.client.start_session() as session:
+            async with session.start_transaction():
+                group_data = await db.starred.find_one({
+                    "userId": data.userId,
+                    "groupId": data.groupId
+                })
+
+                if group_data is not None:
+                    return {
+                        "message": "group is already starred"
+                    }
+
+                await db.starred.insert_one({
+                    "userId": data.userId,
+                    "groupId": data.groupId
+                })
+
+                return {
+                    "message": "group is starred successfully"
+                }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal Server Error: {str(e)}"
+        )
+
+@group_engine.delete("/unstaragroup",dependencies=[Depends(verify_group_api)])
+async def unstar_a_group(
+     data: GroupStarModel,
+     db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    try:
+         async with await db.client.start_session() as session:
+              async with session.start_transaction():
+                   try:
+                        result = await db.starred.delete_one(
+                            {
+                                "userId" : data.userId,
+                                "groupId" : data.groupId
+                            }
+                        )
+
+                        if result.deleted_count==0:
+                            return {
+                                "message" : "there is no such group is starred"
+                            }
+
+                        return {
+                            "message" : "group successfully unstarred"
+                        }
+                   except Exception as e:
+                        raise HTTPException(
+                            status_code=500,
+                            detail=str(e)
+                        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+              
