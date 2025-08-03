@@ -1,11 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 const ProfilePicture = ({ userName, size = 36 }) => {
-    const [initials, setInitials] = useState('');
-    const [backgroundColor, setBackgroundColor] = useState('#6B7280');
-
     const getInitials = (name) => {
         if (!name) return '?';
 
@@ -37,13 +34,9 @@ const ProfilePicture = ({ userName, size = 36 }) => {
         return colors[Math.abs(hash) % colors.length];
     };
 
-    useEffect(() => {
-        if (userName) {
-            setInitials(getInitials(userName));
-            setBackgroundColor(getRandomColor(userName));
-        }
-    }, [userName]);
-
+    // Calculate values directly instead of using state
+    const initials = getInitials(userName);
+    const backgroundColor = getRandomColor(userName);
     const fontSize = size >= 100 ? 'text-3xl' : size >= 60 ? 'text-xl' : 'text-lg';
 
     return (
