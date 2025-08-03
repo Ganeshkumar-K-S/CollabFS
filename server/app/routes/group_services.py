@@ -280,13 +280,14 @@ async def get_group_storage(
     name: str,
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-    if name=="__empty__":
-        name=""
+    if name == "__empty__":
+        name = ""
+
     pipeline = [
         {
             "$match": {
                 "userId": user_id,
-                "role": "Owner"
+                "role": "owner"
             }
         },
         {
@@ -300,10 +301,18 @@ async def get_group_storage(
         {
             "$unwind": "$groupInfo"
         },
-        {
-            "$match": { "groupInfo.gname": name }
-        },
-        { "$unwind": "$groupInfo" },
+    ]
+    if name != "":
+        pipeline.append({
+            "$match": {
+                "groupInfo.gname": {
+                    "$regex": name,
+                    "$options": "i"
+                }
+            }
+        })
+
+    pipeline += [
         {
             "$lookup": {
                 "from": "files",
@@ -323,19 +332,39 @@ async def get_group_storage(
                                 "$switch": {
                                     "branches": [
                                         {
-                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^application|^text" } },
+                                            "case": {
+                                                "$regexMatch": {
+                                                    "input": "$$file.contentType",
+                                                    "regex": "^(application|text)"
+                                                }
+                                            },
                                             "then": "documents"
                                         },
                                         {
-                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^video/" } },
+                                            "case": {
+                                                "$regexMatch": {
+                                                    "input": "$$file.contentType",
+                                                    "regex": "^video/"
+                                                }
+                                            },
                                             "then": "videos"
                                         },
                                         {
-                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^image/" } },
+                                            "case": {
+                                                "$regexMatch": {
+                                                    "input": "$$file.contentType",
+                                                    "regex": "^image/"
+                                                }
+                                            },
                                             "then": "photos"
                                         },
                                         {
-                                            "case": { "$regexMatch": { "input": "$$file.contentType", "regex": "^audio/" } },
+                                            "case": {
+                                                "$regexMatch": {
+                                                    "input": "$$file.contentType",
+                                                    "regex": "^audio/"
+                                                }
+                                            },
                                             "then": "audio"
                                         }
                                     ],
@@ -357,7 +386,7 @@ async def get_group_storage(
                 "frequency": {
                     "$arrayToObject": {
                         "$map": {
-                            "input": [ "documents", "videos", "photos", "audio", "others" ],
+                            "input": ["documents", "videos", "photos", "audio", "others"],
                             "as": "category",
                             "in": {
                                 "k": "$$category",
@@ -367,7 +396,7 @@ async def get_group_storage(
                                             "$filter": {
                                                 "input": "$categorized",
                                                 "as": "item",
-                                                "cond": { "$eq": [ "$$item.type", "$$category" ] }
+                                                "cond": {"$eq": ["$$item.type", "$$category"]}
                                             }
                                         }
                                     },
@@ -378,7 +407,7 @@ async def get_group_storage(
                                                     "$filter": {
                                                         "input": "$categorized",
                                                         "as": "item",
-                                                        "cond": { "$eq": [ "$$item.type", "$$category" ] }
+                                                        "cond": {"$eq": ["$$item.type", "$$category"]}
                                                     }
                                                 },
                                                 "as": "item",
@@ -398,6 +427,7 @@ async def get_group_storage(
     result = await db.groupMembers.aggregate(pipeline).to_list(length=None)
     print(result)
     return result
+
 
 @group_engine.post("/staragroup", dependencies=[Depends(verify_group_api)])
 async def star_a_group(
