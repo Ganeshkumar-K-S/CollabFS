@@ -374,6 +374,9 @@ async def get_group_storage(
                             "size": "$$file.size"
                         }
                     }
+                },
+                "lastModified": {
+                    "$max": "$files.updatedAt"  # or "$files.lastModified" depending on your schema
                 }
             }
         },
@@ -383,6 +386,7 @@ async def get_group_storage(
                 "groupId": "$groupId",
                 "groupName": "$groupInfo.gname",
                 "storageUsed": "$groupInfo.storageUsed",
+                "lastModified": "$lastModified",  
                 "frequency": {
                     "$arrayToObject": {
                         "$map": {
@@ -420,6 +424,11 @@ async def get_group_storage(
                         }
                     }
                 }
+            }
+        },
+        {
+            "$sort": {
+                "lastModified": -1  
             }
         }
     ]

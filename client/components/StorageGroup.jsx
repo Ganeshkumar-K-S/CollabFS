@@ -333,23 +333,6 @@ const StorageGroup = ({ isSmall = false, starred = false, groups, setGroups }) =
                   </div>
                 </div>
               </div>
-              
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-1 ml-4">
-                <CustomTooltip content={group.starred ? "Remove from starred" : "Add to starred"}>
-                  <button
-                    onClick={() => toggleStar(group.id)}
-                    className={`p-1 rounded hover:bg-gray-100 transition-colors ${
-                      group.starred ? 'text-orange-500' : 'text-gray-400'
-                    }`}
-                  >
-                    <StarIcon className={`${isSmall ? 'h-4 w-4' : 'h-5 w-5'} ${group.starred ? 'fill-current' : ''}`} />
-                  </button>
-                </CustomTooltip>
-                <button className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100">
-                  <MoreHorizontal className={`${isSmall ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                </button>
-              </div>
             </div>
 
             {/* Storage Information */}
