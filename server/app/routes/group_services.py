@@ -274,11 +274,14 @@ async def get_user_storage(
                detail=str(e)
           )
 
-@group_engine.get("/groupstorage/{user_id}", dependencies=[Depends(verify_group_api)])
+@group_engine.get("/groupstorage/{user_id}/{name}", dependencies=[Depends(verify_group_api)])
 async def get_group_storage(
     user_id: str,
+    name: str,
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
+    if name=="__empty__":
+        name=""
     pipeline = [
         {
             "$match": {
@@ -293,6 +296,12 @@ async def get_group_storage(
                 "foreignField": "_id",
                 "as": "groupInfo"
             }
+        },
+        {
+            "$unwind": "$groupInfo"
+        },
+        {
+            "$match": { "groupInfo.gname": name }
         },
         { "$unwind": "$groupInfo" },
         {
