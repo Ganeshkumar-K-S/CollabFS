@@ -32,6 +32,7 @@ const Header = ({ isSmall = false }) => {
 
 // Main Drive Storage Page Component
 const StoragePage = () => {
+  const [groups , setGroups] = useState([]); // State to hold groups
   const [activeSection, setActiveSection] = useState('storage');
   const [isMobile, setIsMobile] = useState(false);
   const userName = getData('username') || 'User'; // Get username from localStorage
@@ -132,7 +133,7 @@ const StoragePage = () => {
         <div className={`flex-1 min-w-0 ${isMobile ? 'p-4' : 'p-8'} bg-[#fdfbf7]`}>
           {/* Search Bar */}
           <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
-            <SearchBar isSmall={isMobile} />
+            <SearchBar isSmall={isMobile} groups={groups} setGroups={setGroups} />
           </div>
           
           {/* Welcome Section */}
@@ -142,7 +143,7 @@ const StoragePage = () => {
           </div>
           
           {/* Groups Table */}
-          <StorageGroup isSmall={isMobile} />
+          <StorageGroup isSmall={isMobile} groups={groups} setGroups={setGroups} />
         </div>
       </div>
     </div>

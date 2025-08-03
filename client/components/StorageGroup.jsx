@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { MoreHorizontal, Folder, Clock, Users, StarIcon, HardDrive, FileText, Image, Video, Music, Archive } from 'lucide-react';
 import CustomTooltip from '@/components/CustomTooltip';
 import { getData } from '@/utils/localStorage';
@@ -69,18 +70,46 @@ const FileTypeIcon = ({ type, count, isSmall = false }) => {
 };
 
 // StorageGroup Component
-const StorageGroup = ({ isSmall = false, starred = false }) => {
+const StorageGroup = ({ isSmall = false, starred = false, groups, setGroups }) => {
+  const pathname = usePathname();
   const userId = getData('userId');
-  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://localhost:8000';
   const API_KEY = process.env.NEXT_PUBLIC_GROUP_API_KEY;
 
+  // Get the appropriate endpoint based on current route
+  const getEndpoint = () => {
+    switch (pathname) {
+      case '/home':
+        return `${API_BASE_URL}/group/groupstorage/${userId}`;
+      case '/starred':
+        return `${API_BASE_URL}/group/starred/${userId}`;
+      case '/storage':
+        return `${API_BASE_URL}/group/groupstorage/${userId}`;
+      default:
+        return `${API_BASE_URL}/group/groupstorage/${userId}`;
+    }
+  };
+
+  // Get the appropriate title based on current route and starred prop
+  const getTitle = () => {
+    if (pathname === '/starred' || starred) {
+      return 'Starred Groups';
+    }
+    return 'My Groups';
+  };
+
   // Fetch group storage data
   useEffect(() => {
     const fetchGroupStorage = async () => {
+      // Skip fetching if groups are provided via props (from search)
+      if (groups && groups.length >= 0) {
+        setLoading(false);
+        return;
+      }
+
       if (!userId) {
         console.warn('StorageGroup: No userId provided');
         setError('No user ID provided');
@@ -100,7 +129,7 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
         setLoading(true);
         setError(null);
 
-        const url = `${API_BASE_URL}/group/groupstorage/${userId}`;
+        const url = getEndpoint();
         console.log('Making request to:', url);
 
         const response = await fetch(url, {
@@ -130,7 +159,7 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
           modified: '2 hours ago', // You might want to add lastModified to your API
           owner: 'me',
           shared: false, // You might want to add this info to your API
-          starred: false, // You might want to add this info to your API
+          starred: group.starred || false, // You might want to add this info to your API
           storage: {
             used: group.storageUsed || 0,
             total: 15 * 1024 * 1024 * 1024, // 15GB default, you might want to make this configurable
@@ -144,7 +173,9 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
           }
         }));
 
-        setGroups(transformedGroups);
+        if (setGroups) {
+          setGroups(transformedGroups);
+        }
         setLoading(false);
 
       } catch (error) {
@@ -155,24 +186,64 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
     };
 
     fetchGroupStorage();
-  }, [userId, API_KEY, API_BASE_URL]);
+  }, [userId, API_KEY, API_BASE_URL, pathname, groups]);
 
-  const toggleStar = (id) => {
-    setGroups(groups.map(group => 
-      group.id === id ? { ...group, starred: !group.starred } : group
-    ));
+  const toggleStar = async (id) => {
+    const updatedGroups = groups ? [...groups] : [];
+    const groupIndex = updatedGroups.findIndex(group => group.id === id);
+    
+    if (groupIndex !== -1) {
+      updatedGroups[groupIndex] = {
+        ...updatedGroups[groupIndex],
+        starred: !updatedGroups[groupIndex].starred
+      };
+      
+      if (setGroups) {
+        setGroups(updatedGroups);
+      }
+
+      // Here you might want to make an API call to update the starred status
+      try {
+        await fetch(`${API_BASE_URL}/group/star/${userId}/${id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+          },
+          body: JSON.stringify({ starred: updatedGroups[groupIndex].starred })
+        });
+      } catch (error) {
+        console.error('Error updating starred status:', error);
+        // Revert the change if API call fails
+        updatedGroups[groupIndex].starred = !updatedGroups[groupIndex].starred;
+        if (setGroups) {
+          setGroups(updatedGroups);
+        }
+      }
+    }
   };
 
-  // Filter groups based on starred prop
-  const filteredGroups = starred ? groups.filter(group => group.starred) : groups;
+  // Use groups from props if available, otherwise use empty array during loading
+  const displayGroups = groups || [];
+
+  // Filter groups based on starred prop and current route
+  const filteredGroups = (() => {
+    if (pathname === '/starred') {
+      return displayGroups.filter(group => group.starred);
+    }
+    if (starred) {
+      return displayGroups.filter(group => group.starred);
+    }
+    return displayGroups;
+  })();
 
   // Loading state
-  if (loading) {
+  if (loading && !groups) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
           <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
-            {starred ? 'Starred Groups' : 'My Groups'}
+            {getTitle()}
           </h3>
         </div>
         <div className={`${isSmall ? 'p-4' : 'p-6'} text-center`}>
@@ -187,12 +258,12 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
   }
 
   // Error state
-  if (error) {
+  if (error && !groups) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
           <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
-            {starred ? 'Starred Groups' : 'My Groups'}
+            {getTitle()}
           </h3>
         </div>
         <div className={`${isSmall ? 'p-4' : 'p-6'} text-center`}>
@@ -216,13 +287,13 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
           <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
-            {starred ? 'Starred Groups' : 'My Groups'}
+            {getTitle()}
           </h3>
         </div>
         <div className={`${isSmall ? 'p-4' : 'p-6'} text-center`}>
           <Folder className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">
-            {starred ? 'No starred groups found' : 'No groups found'}
+            {pathname === '/starred' || starred ? 'No starred groups found' : 'No groups found'}
           </p>
         </div>
       </div>
@@ -233,7 +304,7 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
         <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
-          {starred ? 'Starred Groups' : 'My Groups'}
+          {getTitle()}
         </h3>
       </div>
       

@@ -396,6 +396,7 @@ async def get_group_storage(
     ]
 
     result = await db.groupMembers.aggregate(pipeline).to_list(length=None)
+    print(result)
     return result
 
 @group_engine.post("/staragroup", dependencies=[Depends(verify_group_api)])
