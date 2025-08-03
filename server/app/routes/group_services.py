@@ -161,87 +161,92 @@ async def search(
         async with await db.client.start_session() as session:
             async with session.start_transaction():
                 try:
-                    if name=="__empty__":
-                        name=""
-                    cursor=db.groupMembers.aggregate(
-                         [
-                            {
-                                "$match" : {
-                                     "userId":user_id
-                                }
-                            },
-                            {
-                                "$lookup" : {
-                                     "from" : "group",
-                                     "localField" : "groupId",
-                                     "foreignField" : "_id",
-                                     "as" : "rightj"
-                                }
-                            },
-                            {
-                                "$unwind": "$rightj"
-                            },
-                            {
-                                 "$match": {
-                                      "rightj.gname" :{
-                                           "$regex" : name,
-                                           "$options" : "i"
-                                      }
-                                 }
+                    if name == "__empty__":
+                        name = ""
+                    
+                    cursor = db.groupMembers.aggregate([
+                        {
+                            "$match": {
+                                "userId": user_id
                             }
-                         ]
-                    )
-
-                    result=await cursor.to_list(length=None)
-                    response=[]
-
+                        },
+                        {
+                            "$lookup": {
+                                "from": "group",
+                                "localField": "groupId",
+                                "foreignField": "_id",
+                                "as": "rightj"
+                            }
+                        },
+                        {
+                            "$unwind": "$rightj"
+                        },
+                        {
+                            "$match": {
+                                "rightj.gname": {
+                                    "$regex": name,
+                                    "$options": "i"
+                                }
+                            }
+                        }
+                    ])
+                    
+                    result = await cursor.to_list(length=None)
+                    response = []
+                    
                     for doc in result:
-                        group_id=doc["groupId"]
-                        role=doc["role"]
-                        gname=doc["rightj"]["gname"]
+                        group_id = doc["groupId"]
+                        role = doc["role"]
+                        gname = doc["rightj"]["gname"]
                         
                         latest_cursor = db.activities.find(
                             {"groupId": group_id},
                             sort=[("timestamp", -1)],
                             limit=1
                         )
-
+                        
                         latest_list = await latest_cursor.to_list(length=1)
                         latest_date = latest_list[0]["timestamp"] if latest_list else None
-
-
-                        lastmod=time_ago(latest_date)
-
+                        
                         starred = await db.starred.find_one({
-                            "userId":user_id,
-                            "groupId":group_id
+                            "userId": user_id,
+                            "groupId": group_id
                         }) is not None
-
-                        response.append(
-                             {
-                                "groupId":group_id,
-                                "groupName":gname,
-                                "role":role,
-                                "lastModified":lastmod,
-                                "starred":starred
-                             }
-                        )
+                        
+                        response.append({
+                            "groupId": group_id,
+                            "groupName": gname,
+                            "role": role,
+                            "lastModified": latest_date,  # Store actual timestamp for sorting
+                            "starred": starred
+                        })
+                    
+                    # Sort by lastModified timestamp (most recent first)
+                    # Handle None values by putting them at the end
+                    response.sort(
+                        key=lambda x: x["lastModified"] if x["lastModified"] is not None else datetime.min,
+                        reverse=True
+                    )
+                    
+                    # Convert timestamps to human-readable format after sorting
+                    for item in response:
+                        item["lastModified"] = time_ago(item["lastModified"])
+                    
                     print(response)
                     return response
-                        
+                    
                 except Exception as e:
-                     print(e)
-                     raise HTTPException(
-                          status_code=500,
-                          detail=str(e)
-                     )
-
+                    print(e)
+                    raise HTTPException(
+                        status_code=500,
+                        detail=str(e)
+                    )
     except Exception as e:
-            print(e)
-            raise HTTPException(
-                status_code=500,
-                detail=str(e)
-            )
+        print(e)
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
     
 @group_engine.get(
      "/userstorage/{user_id}",dependencies=[Depends(verify_group_api)]

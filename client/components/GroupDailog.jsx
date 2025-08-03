@@ -43,6 +43,8 @@ const GroupDailog = ({ isDialogOpen, setIsDialogOpen, groupName, setGroupName, g
       setIsDialogOpen(false);
       setGroupName("");
       setGroupDescription("");
+
+      window.location.reload(); // Refresh the page to reflect changes
     } catch (err) {
       console.error("Error creating group:", err.message);
     }

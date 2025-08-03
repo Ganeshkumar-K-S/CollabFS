@@ -16,7 +16,7 @@ const GroupsTable = ({
   const [loading, setLoading] = useState(false);
   const userId = getData('userId'); // Get userId from localStorage
   const apiKey = process.env.NEXT_PUBLIC_GROUP_API_KEY; // Get API key from environment variable
-
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://localhost:8000';
   const getRoleIcon = (role) => {
     switch (role.toLowerCase()) {
       case 'owner':
@@ -60,7 +60,7 @@ const GroupsTable = ({
 
     setLoading(true);
     try {
-      const response = await fetch('/api/group/staragroup', {
+      const response = await fetch(`${API_BASE_URL}/group/staragroup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,6 +93,7 @@ const GroupsTable = ({
         }
 
         console.log('Group starred successfully:', data.message);
+        window.location.reload(); // Refresh the page to reflect changes
       } else {
         console.error('Failed to star group:', data.detail || data.message);
       }
@@ -112,7 +113,7 @@ const GroupsTable = ({
 
     setLoading(true);
     try {
-      const response = await fetch('/api/group/unstaragroup', {
+      const response = await fetch(`${API_BASE_URL}/group/unstaragroup`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -145,6 +146,7 @@ const GroupsTable = ({
         }
 
         console.log('Group unstarred successfully:', data.message);
+        window.location.reload(); // Refresh the page to reflect changes
       } else {
         console.error('Failed to unstar group:', data.detail || data.message);
       }

@@ -70,7 +70,7 @@ const HomePage = () => {
     setGroupDescription('');
     setIsDialogOpen(false);
   };
-  
+
   // Calculate profile picture size based on screen size
   const getProfileSize = () => {
     if (typeof window !== 'undefined') {
@@ -78,9 +78,9 @@ const HomePage = () => {
       if (width < 640) return 28; // Mobile
       if (width < 768) return 32; // Small tablet
       if (width < 1024) return 36; // Tablet
-      return 40; // Desktop
+      return 36; // Desktop
     }
-    return 40; // Default fallback
+    return 36; // Default fallback
   };
 
   const profileSize = getProfileSize();

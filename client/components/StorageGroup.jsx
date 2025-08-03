@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MoreHorizontal, Folder, Clock, Users, StarIcon, HardDrive, FileText, Image, Video, Music, Archive } from 'lucide-react';
 import CustomTooltip from '@/components/CustomTooltip';
+import { getData } from '@/utils/localStorage';
 
 // Helper function to format file size
 const formatFileSize = (bytes) => {
@@ -46,13 +47,13 @@ const FileTypeIcon = ({ type, count, isSmall = false }) => {
     switch (type) {
       case 'documents':
         return <FileText className={`${iconSize} text-blue-500`} />;
-      case 'images':
+      case 'photos':
         return <Image className={`${iconSize} text-green-500`} />;
       case 'videos':
         return <Video className={`${iconSize} text-purple-500`} />;
       case 'audio':
         return <Music className={`${iconSize} text-pink-500`} />;
-      case 'archives':
+      case 'others':
         return <Archive className={`${iconSize} text-gray-500`} />;
       default:
         return <FileText className={`${iconSize} text-gray-500`} />;
@@ -69,108 +70,92 @@ const FileTypeIcon = ({ type, count, isSmall = false }) => {
 
 // StorageGroup Component
 const StorageGroup = ({ isSmall = false, starred = false }) => {
-  const [groups, setGroups] = useState([
-    {
-      id: 1,
-      name: 'Project Alpha',
-      type: 'group',
-      modified: '2 hours ago',
-      owner: 'me',
-      shared: false,
-      starred: false,
-      storage: {
-        used: 2500000000, // 2.5 GB
-        total: 5000000000, // 5 GB
-        files: {
-          documents: 45,
-          images: 120,
-          videos: 8,
-          audio: 15,
-          archives: 3
-        }
+  const userId = getData('userId');
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://localhost:8000';
+  const API_KEY = process.env.NEXT_PUBLIC_GROUP_API_KEY;
+
+  // Fetch group storage data
+  useEffect(() => {
+    const fetchGroupStorage = async () => {
+      if (!userId) {
+        console.warn('StorageGroup: No userId provided');
+        setError('No user ID provided');
+        setLoading(false);
+        return;
       }
-    },
-    {
-      id: 2,
-      name: 'Personal Documents',
-      type: 'group',
-      modified: '1 day ago',
-      owner: 'me',
-      shared: false,
-      starred: true,
-      storage: {
-        used: 850000000, // 850 MB
-        total: 2000000000, // 2 GB
-        files: {
-          documents: 78,
-          images: 25,
-          videos: 2,
-          audio: 5,
-          archives: 1
-        }
+
+      if (!API_KEY) {
+        console.warn('StorageGroup: No API key provided');
+        setError('No API key configured');
+        setLoading(false);
+        return;
       }
-    },
-    {
-      id: 3,
-      name: 'Team Collaboration',
-      type: 'group',
-      modified: '3 days ago',
-      owner: 'me',
-      shared: true,
-      starred: false,
-      storage: {
-        used: 4200000000, // 4.2 GB
-        total: 10000000000, // 10 GB
-        files: {
-          documents: 156,
-          images: 89,
-          videos: 15,
-          audio: 8,
-          archives: 12
+
+      try {
+        console.log('Fetching group storage for user:', userId);
+        setLoading(true);
+        setError(null);
+
+        const url = `${API_BASE_URL}/group/groupstorage/${userId}`;
+        console.log('Making request to:', url);
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+          },
+        });
+
+        console.log('Response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error Response:', errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
+
+        const data = await response.json();
+        console.log('Group storage data received:', data);
+
+        // Transform API data to match component structure
+        const transformedGroups = data.map((group, index) => ({
+          id: group.groupId || index,
+          name: group.groupName || 'Unnamed Group',
+          type: 'group',
+          modified: '2 hours ago', // You might want to add lastModified to your API
+          owner: 'me',
+          shared: false, // You might want to add this info to your API
+          starred: false, // You might want to add this info to your API
+          storage: {
+            used: group.storageUsed || 0,
+            total: 15 * 1024 * 1024 * 1024, // 15GB default, you might want to make this configurable
+            files: {
+              documents: group.frequency?.documents?.count || 0,
+              photos: group.frequency?.photos?.count || 0,
+              videos: group.frequency?.videos?.count || 0,
+              audio: group.frequency?.audio?.count || 0,
+              others: group.frequency?.others?.count || 0
+            }
+          }
+        }));
+
+        setGroups(transformedGroups);
+        setLoading(false);
+
+      } catch (error) {
+        console.error('Error fetching group storage:', error);
+        setError(error.message);
+        setLoading(false);
       }
-    },
-    {
-      id: 4,
-      name: 'Archive 2024',
-      type: 'group',
-      modified: '1 week ago',
-      owner: 'me',
-      shared: false,
-      starred: true,
-      storage: {
-        used: 7800000000, // 7.8 GB
-        total: 10000000000, // 10 GB
-        files: {
-          documents: 234,
-          images: 445,
-          videos: 28,
-          audio: 67,
-          archives: 45
-        }
-      }
-    },
-    {
-      id: 5,
-      name: 'Client Files',
-      type: 'group',
-      modified: '2 weeks ago',
-      owner: 'me',
-      shared: true,
-      starred: false,
-      storage: {
-        used: 1200000000, // 1.2 GB
-        total: 3000000000, // 3 GB
-        files: {
-          documents: 67,
-          images: 34,
-          videos: 5,
-          audio: 12,
-          archives: 8
-        }
-      }
-    }
-  ]);
+    };
+
+    fetchGroupStorage();
+  }, [userId, API_KEY, API_BASE_URL]);
 
   const toggleStar = (id) => {
     setGroups(groups.map(group => 
@@ -180,6 +165,69 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
 
   // Filter groups based on starred prop
   const filteredGroups = starred ? groups.filter(group => group.starred) : groups;
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
+          <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
+            {starred ? 'Starred Groups' : 'My Groups'}
+          </h3>
+        </div>
+        <div className={`${isSmall ? 'p-4' : 'p-6'} text-center`}>
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-4"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/3 mx-auto"></div>
+          </div>
+          <p className="text-gray-500 mt-4">Loading groups...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
+          <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
+            {starred ? 'Starred Groups' : 'My Groups'}
+          </h3>
+        </div>
+        <div className={`${isSmall ? 'p-4' : 'p-6'} text-center`}>
+          <div className="bg-red-100 border border-red-200 rounded p-4">
+            <p className="text-red-600 text-sm">{error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="text-red-700 text-sm underline hover:no-underline mt-2"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state
+  if (filteredGroups.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className={`px-4 md:px-6 ${isSmall ? 'py-3' : 'py-4'} border-b border-gray-200`}>
+          <h3 className={`${isSmall ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
+            {starred ? 'Starred Groups' : 'My Groups'}
+          </h3>
+        </div>
+        <div className={`${isSmall ? 'p-4' : 'p-6'} text-center`}>
+          <Folder className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">
+            {starred ? 'No starred groups found' : 'No groups found'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -260,19 +308,19 @@ const StorageGroup = ({ isSmall = false, starred = false }) => {
                 </div>
                 <div className={`grid ${isSmall ? 'grid-cols-3' : 'grid-cols-5'} gap-4`}>
                   <FileTypeIcon type="documents" count={group.storage.files.documents} isSmall={isSmall} />
-                  <FileTypeIcon type="images" count={group.storage.files.images} isSmall={isSmall} />
+                  <FileTypeIcon type="photos" count={group.storage.files.photos} isSmall={isSmall} />
                   <FileTypeIcon type="videos" count={group.storage.files.videos} isSmall={isSmall} />
                   {!isSmall && (
                     <>
                       <FileTypeIcon type="audio" count={group.storage.files.audio} isSmall={isSmall} />
-                      <FileTypeIcon type="archives" count={group.storage.files.archives} isSmall={isSmall} />
+                      <FileTypeIcon type="others" count={group.storage.files.others} isSmall={isSmall} />
                     </>
                   )}
                 </div>
                 {isSmall && (
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <FileTypeIcon type="audio" count={group.storage.files.audio} isSmall={isSmall} />
-                    <FileTypeIcon type="archives" count={group.storage.files.archives} isSmall={isSmall} />
+                    <FileTypeIcon type="others" count={group.storage.files.others} isSmall={isSmall} />
                   </div>
                 )}
               </div>
