@@ -1,52 +1,176 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, MoreVertical, Copy } from 'lucide-react';
-import ProfilePicture from '@/components/ProfilePicture';
+import { Send, MoreVertical, Copy, Wifi, WifiOff } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
-const ChatPage = () => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      username: 'John Doe',
-      message: 'Hey everyone! How is the project going?',
-      timestamp: new Date('2024-08-03T10:30:00'),
-      isCurrentUser: false
-    },
-    {
-      id: 2,
-      username: 'You',
-      message: 'Going great! Just finished the login component.',
-      timestamp: new Date('2024-08-03T10:32:15'),
-      isCurrentUser: true
-    },
-    {
-      id: 3,
-      username: 'Sarah Smith',
-      message: 'Awesome work! I\'ve been working on the database schema. Should be ready for testing soon.',
-      timestamp: new Date('2024-08-03T10:35:22'),
-      isCurrentUser: false
-    },
-    {
-      id: 4,
-      username: 'You',
-      message: 'Perfect timing! Let me know when you need help with testing.',
-      timestamp: new Date('2024-08-03T10:36:45'),
-      isCurrentUser: true
-    }
-  ]);
+// Mock ProfilePicture component since it's not available
+const ProfilePicture = ({ userName, size = "36" }) => {
+  const initials = userName.split(' ').map(name => name[0]).join('').slice(0, 2).toUpperCase();
+  const colors = [
+    'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 
+    'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
+  ];
+  const colorIndex = userName.length % colors.length;
   
+  return (
+    <div 
+      className={`${colors[colorIndex]} rounded-full flex items-center justify-center text-white font-semibold`}
+      style={{ width: `${size}px`, height: `${size}px`, fontSize: `${parseInt(size) * 0.4}px` }}
+    >
+      {initials}
+    </div>
+  );
+};
+
+const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) => {
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [showOptions, setShowOptions] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(null);
+  const pathName = usePathname();
+  const groupId = pathName.split('/')[2]; // Assuming the URL is like /
   const messagesEndRef = useRef(null);
-  const currentUser = 'You';
+  const websocketRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
 
   // Mock data for group chat info
   const groupChatInfo = {
-    name: 'Project Team Chat',
-    membersOnline: 3,
-    totalMembers: 5
+    name: 'Group Chat',
+    membersOnline: 3
   };
+
+  // Fetch message history
+  const fetchMessageHistory = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${apiBaseUrl.replace('ws://', 'http://')}/chat/history/${groupId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const history = await response.json();
+      
+      // Transform API response to match component format
+      const transformedMessages = history.map((msg, index) => ({
+        id: index + 1,
+        username: msg.user,
+        message: msg.message,
+        timestamp: new Date(msg.timestamp),
+        isCurrentUser: msg.user === currentUser
+      }));
+      
+      setMessages(transformedMessages);
+      setConnectionError(null);
+    } catch (error) {
+      console.error('Failed to fetch message history:', error);
+      setConnectionError('Failed to load message history');
+      // Set some default messages if history fetch fails
+      setMessages([
+        {
+          id: 1,
+          username: 'System',
+          message: 'Welcome to the chat! (History could not be loaded)',
+          timestamp: new Date(),
+          isCurrentUser: false
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Connect to WebSocket
+  const connectWebSocket = () => {
+    try {
+      const wsUrl = `${apiBaseUrl}/chat/ws/${groupId}`;
+      console.log('Connecting to:', wsUrl);
+      
+      websocketRef.current = new WebSocket(wsUrl);
+
+      websocketRef.current.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+        setConnectionError(null);
+      };
+
+      websocketRef.current.onmessage = (event) => {
+        try {
+          // Handle both JSON and plain text messages
+          let messageData;
+          try {
+            messageData = JSON.parse(event.data);
+          } catch {
+            // If it's not JSON, treat as plain text (format: "user: message")
+            const textMessage = event.data;
+            const colonIndex = textMessage.indexOf(': ');
+            if (colonIndex > 0) {
+              const user = textMessage.substring(0, colonIndex);
+              const message = textMessage.substring(colonIndex + 2);
+              messageData = { user, message };
+            } else {
+              messageData = { user: 'Unknown', message: textMessage };
+            }
+          }
+
+          // Don't add our own messages (they're already added when sent)
+          if (messageData.user !== currentUser) {
+            const newMsg = {
+              id: Date.now(),
+              username: messageData.user,
+              message: messageData.message,
+              timestamp: new Date(),
+              isCurrentUser: false
+            };
+            
+            setMessages(prev => [...prev, newMsg]);
+          }
+        } catch (error) {
+          console.error('Error processing message:', error);
+        }
+      };
+
+      websocketRef.current.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
+        setIsConnected(false);
+        
+        // Attempt to reconnect if not a normal closure
+        if (event.code !== 1000) {
+          console.log('Attempting to reconnect...');
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectWebSocket();
+          }, 1000);
+        }
+      };
+
+      websocketRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setConnectionError('Connection error occurred');
+      };
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      setConnectionError('Failed to connect to chat server');
+    }
+  };
+
+  // Initialize chat
+  useEffect(() => {
+    fetchMessageHistory();
+    connectWebSocket();
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (websocketRef.current) {
+        websocketRef.current.close(1000, 'Component unmounting');
+      }
+    };
+  }, [groupId]);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -73,16 +197,27 @@ const ChatPage = () => {
 
   // Send message
   const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const message = {
-        id: messages.length + 1,
+    if (newMessage.trim() && websocketRef.current && isConnected) {
+      const messageData = {
+        user: currentUser,
+        message: newMessage.trim()
+      };
+
+      // Add message to local state immediately for better UX
+      const localMessage = {
+        id: Date.now(),
         username: currentUser,
         message: newMessage.trim(),
         timestamp: new Date(),
         isCurrentUser: true
       };
-      setMessages([...messages, message]);
+      setMessages(prev => [...prev, localMessage]);
+
+      // Send to WebSocket
+      websocketRef.current.send(JSON.stringify(messageData));
       setNewMessage('');
+    } else if (!isConnected) {
+      setConnectionError('Not connected to server. Please wait...');
     }
   };
 
@@ -98,16 +233,34 @@ const ChatPage = () => {
   const handleCopyMessage = (messageId) => {
     setShowOptions(null);
     const message = messages.find(m => m.id === messageId);
-    navigator.clipboard.writeText(message.message);
-    // You could add a toast notification here
+    if (message && navigator.clipboard) {
+      navigator.clipboard.writeText(message.message).then(() => {
+        // Could add toast notification here
+        console.log('Message copied to clipboard');
+      }).catch(err => {
+        console.error('Failed to copy message:', err);
+      });
+    }
   };
 
   // Handle double click to copy
   const handleDoubleClick = (messageId) => {
-    const message = messages.find(m => m.id === messageId);
-    navigator.clipboard.writeText(message.message);
-    // You could add a toast notification here
+    handleCopyMessage(messageId);
   };
+
+  // Retry connection
+  const retryConnection = () => {
+    setConnectionError(null);
+    connectWebSocket();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full bg-orange-50 items-center justify-center">
+        <div className="text-orange-600">Loading chat history...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-orange-50">
@@ -125,15 +278,39 @@ const ChatPage = () => {
                 {groupChatInfo.name}
               </h1>
               <p className="text-sm text-orange-600">
-                {groupChatInfo.membersOnline} of {groupChatInfo.totalMembers} members online
+                {groupChatInfo.membersOnline} members online
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm text-orange-600 font-medium">Active</span>
+            {isConnected ? (
+              <>
+                <Wifi className="w-4 h-4 text-green-500" />
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-600 font-medium">Connected</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4 text-red-500" />
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span className="text-sm text-red-600 font-medium">Disconnected</span>
+              </>
+            )}
           </div>
         </div>
+        
+        {/* Connection Error Banner */}
+        {connectionError && (
+          <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded-lg flex items-center justify-between">
+            <span className="text-red-700 text-sm">{connectionError}</span>
+            <button
+              onClick={retryConnection}
+              className="text-red-700 text-sm underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Messages Container */}
@@ -209,35 +386,6 @@ const ChatPage = () => {
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                 </div>
-
-                {/* Alternative: Dropdown Copy Option (Less Accessible) */}
-                <div className={`absolute top-0 ${
-                  message.isCurrentUser ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'
-                } opacity-0 group-hover:opacity-100 transition-opacity hidden`}>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowOptions(showOptions === message.id ? null : message.id)}
-                      className="p-1 rounded-full hover:bg-orange-100 transition-colors"
-                    >
-                      <MoreVertical className="w-4 h-4 text-orange-600" />
-                    </button>
-
-                    {/* Copy Option Dropdown */}
-                    {showOptions === message.id && (
-                      <div className={`absolute top-8 ${
-                        message.isCurrentUser ? 'right-0' : 'left-0'
-                      } w-32 bg-white rounded-lg shadow-lg border border-orange-200 py-1 z-10`}>
-                        <button
-                          onClick={() => handleCopyMessage(message.id)}
-                          className="flex items-center space-x-2 px-3 py-2 text-sm text-orange-800 hover:bg-orange-50 w-full text-left"
-                        >
-                          <Copy className="w-4 h-4" />
-                          <span>Copy</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
 
               {/* Timestamp */}
@@ -261,9 +409,14 @@ const ChatPage = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
+                placeholder={isConnected ? "Type a message..." : "Connecting..."}
                 rows={1}
-                className="w-full px-4 py-3 bg-white border border-orange-300 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none text-orange-900 placeholder-orange-400"
+                disabled={!isConnected}
+                className={`w-full px-4 py-3 border rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none text-orange-900 placeholder-orange-400 ${
+                  isConnected 
+                    ? 'bg-white border-orange-300' 
+                    : 'bg-gray-100 border-gray-300 cursor-not-allowed'
+                }`}
                 style={{
                   minHeight: '44px',
                   maxHeight: '120px',
@@ -278,9 +431,9 @@ const ChatPage = () => {
           
           <button
             onClick={handleSendMessage}
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || !isConnected}
             className={`p-3 rounded-full transition-all ${
-              newMessage.trim()
+              newMessage.trim() && isConnected
                 ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg'
                 : 'bg-orange-200 text-orange-400 cursor-not-allowed'
             }`}
@@ -289,9 +442,13 @@ const ChatPage = () => {
           </button>
         </div>
         
-        {/* Typing indicator area */}
+        {/* Status indicator */}
         <div className="mt-2 h-4">
-          {/* You can add typing indicators here */}
+          {!isConnected && (
+            <div className="text-xs text-orange-600">
+              Reconnecting...
+            </div>
+          )}
         </div>
       </div>
 

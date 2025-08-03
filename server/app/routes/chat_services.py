@@ -53,6 +53,7 @@ async def get_messages(group_id: str,db = Depends(get_db)):
         cursor = db.chat.find({"groupId": group_id}).sort("timestamp", -1)
         prev_messages = await cursor.to_list(length=100)
 
+        print(f"Retrieved {len(prev_messages)} messages for group {group_id}")
         return [
             {
                 "user": msg.get("senderId", "anonymous"),
