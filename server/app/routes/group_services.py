@@ -240,3 +240,76 @@ async def search(
                 status_code=500,
                 detail=str(e)
             )
+    
+@group_engine.get(
+     "/userstorage/{user_id}",dependencies=[Depends(verify_group_api)]
+    )
+async def get_user_storage(
+     user_id,
+     db : AsyncIOMotorDatabase = Depends(get_db)
+):
+     try:
+          user_data=await db.user.find_one({
+               "_id":user_id
+          })
+
+          if user_data is None:
+               raise HTTPException(
+                    status_code=404,
+                    detail="user not found"
+               )
+          return {
+               "storageUsed":user_data["storageUsed"]
+          }
+     except Exception as e:
+          raise HTTPException(
+               status_code=500,
+               detail=str(e)
+          )
+
+@group_engine.get("/groupstorage/{user_id}",dependencies=[Depends(verify_group_api)])
+async def get_group_storage(
+     user_id,
+     db : AsyncIOMotorDatabase = Depends(get_db)
+):
+     try:
+          groups_data=db.groupmember.aggregate([
+               {
+                    "$match":{
+                         "userId" : user_id
+                    }
+               },
+               {
+                    "$match":{
+                         "role" : "Owner"
+                    }
+               },
+               {
+                    "$lookup":{
+                         "from":"group",
+                         "localField":"groupId",
+                         "foreignField":"_id",
+                         "as":"right"
+                    }
+               },
+               {
+                    "$unwind":"right"
+               }
+          ])
+
+          result=groups_data.to_list(length=None)
+
+          return [
+               {
+                    "groupId":doc["groupId"],
+                    "groupName":doc["right"]["gname"],
+                    "storageUsed":doc["storageUsed"]
+               }
+               for doc in result
+          ]
+     
+     except Exception as e:
+          raise HTTPException(
+               status_code=500,
+               detail=str(e)
+          )

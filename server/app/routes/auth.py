@@ -162,7 +162,7 @@ async def setuserid_api(request: UserModel):
             "email": request.email
         }
 
-        await db.otp_store.delete_one({"email": request.email, "otp": otp})
+        await db.otp_store.delete_one({"email": request.email, "otp": request.otp})
 
         return {
             "success": True,

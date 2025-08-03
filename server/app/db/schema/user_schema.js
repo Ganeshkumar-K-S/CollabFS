@@ -4,7 +4,7 @@ db.createCollection(
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["_id", "name", "pwd", "email", "createAt", "lastAccessed"],
+        required: ["_id", "name", "pwd", "email", "createAt", "lastAccessed","storageUsed"],
         properties: {
           _id: {
             bsonType: "string",
@@ -29,6 +29,10 @@ db.createCollection(
           lastAccessed: {
             bsonType: "date",
             description: "lastAccessed must be of type date"
+          },
+          storageUsed: {
+            bsonType:"long",
+            description: "must be a long integer"
           }
         }
       }
