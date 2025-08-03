@@ -505,4 +505,43 @@ async def unstar_a_group(
             status_code=500,
             detail=str(e)
         )
-              
+
+@group_engine.get("/getgroup/{user_id}/{group_id}", dependencies=[Depends(verify_group_api)])
+async def get_group_details(
+    user_id: str,
+    group_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    try:
+        # Find user role in groupMembers
+        member = await db.groupMembers.find_one({
+            "userId": user_id,
+            "groupId": group_id
+        })
+
+        if not member:
+            raise HTTPException(
+                status_code=404,
+                detail="User is not a member of the group"
+            )
+
+        group = await db.group.find_one({"_id": group_id}, {"_id": 0, "gname": 1 , "description": 1})
+        if not group:
+            raise HTTPException(
+                status_code=404,
+                detail="Group not found"
+            )
+
+        return {
+            "userId": user_id,
+            "groupId": group_id,
+            "role": member["role"],
+            "groupName": group["gname"],
+            "description": group["description"],
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal Server Error: {str(e)}"
+        )

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {Folder, Clock, Users, StarIcon, Crown, User, Eye} from 'lucide-react';
 import CustomTooltip from '@/components/CustomTooltip';
 import { getData } from '@/utils/localStorage';
@@ -14,9 +15,11 @@ const GroupsTable = ({
   onGroupsUpdate // Callback to update parent component's groups state
 }) => {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const userId = getData('userId'); // Get userId from localStorage
   const apiKey = process.env.NEXT_PUBLIC_GROUP_API_KEY; // Get API key from environment variable
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://localhost:8000';
+  
   const getRoleIcon = (role) => {
     switch (role.toLowerCase()) {
       case 'owner':
@@ -49,6 +52,11 @@ const GroupsTable = ({
       default:
         return 'text-gray-600 bg-gray-50';
     }
+  };
+
+  // Function to handle group row click for navigation
+  const handleGroupClick = (groupId) => {
+    router.push(`/groups/${groupId}`);
   };
 
   // Function to handle starring a group
@@ -191,7 +199,11 @@ const GroupsTable = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredGroups.map((group) => (
-              <tr key={group.groupId} className="hover:bg-gray-50 cursor-pointer">
+              <tr 
+                key={group.groupId} 
+                className="hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => handleGroupClick(group.groupId)}
+              >
                 <td className={`px-3 md:px-6 ${isSmall ? 'py-3' : 'py-4'} whitespace-nowrap`}>
                   <div className="flex items-center min-w-0">
                     <Folder className={`${isSmall ? 'h-4 w-4' : 'h-5 w-5'} text-orange-500 mr-2 md:mr-3 flex-shrink-0`} />
@@ -217,7 +229,7 @@ const GroupsTable = ({
                     <CustomTooltip content={group.starred ? "Remove from starred" : "Add to starred"}>
                       <button
                         onClick={(e) => {
-                          e.stopPropagation(); // Prevent row click if table row is clickable
+                          e.stopPropagation(); // Prevent row click navigation when clicking star
                           handleToggleStar(group.groupId);
                         }}
                         disabled={loading}
