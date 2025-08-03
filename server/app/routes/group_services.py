@@ -10,6 +10,7 @@ from bson import ObjectId , int64
 import uuid
 import os
 from app.utils.group_utils import time_ago
+from bson import Int64
 
 load_dotenv()
 
@@ -48,7 +49,8 @@ async def create_group(
                 "description": create_data.description,
                 "createdBy": user_id,
                 "createdAt": datetime.now(timezone.utc),
-                "starred" : False
+                "starred" : False,
+                "storageUsed" : Int64(0)
             }
             await db.group.insert_one(group_data, session=session)
 
