@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, MoreVertical, Copy, Wifi, WifiOff } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { getData } from '@/utils/localStorage'; // Assuming you have a utility to get user data
 
 // Mock ProfilePicture component since it's not available
 const ProfilePicture = ({ userName, size = "36" }) => {
@@ -23,13 +24,15 @@ const ProfilePicture = ({ userName, size = "36" }) => {
   );
 };
 
-const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) => {
+const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [showOptions, setShowOptions] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(null);
+  const [currentUser, setCurrentUser] = useState('');
+  
   const pathName = usePathname();
   const groupId = pathName.split('/')[2]; // Assuming the URL is like /
   const messagesEndRef = useRef(null);
@@ -42,6 +45,12 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
     membersOnline: 3
   };
 
+  // Get user data from localStorage
+  useEffect(() => {
+    const username = getData('username') || getData('userName') || 'Anonymous User';
+    setCurrentUser(username);
+  }, []);
+
   // Fetch message history
   const fetchMessageHistory = async () => {
     try {
@@ -53,14 +62,16 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
       }
       
       const history = await response.json();
+      const userId = getData('userId');
+      const username = getData('username') || getData('userName');
       
       // Transform API response to match component format
       const transformedMessages = history.map((msg, index) => ({
         id: index + 1,
-        username: msg.user,
+        username: msg.username,
         message: msg.message,
-        timestamp: new Date(msg.timestamp),
-        isCurrentUser: msg.user === currentUser
+        timestamp: msg.timestamp,
+        isCurrentUser: msg.user === userId || msg.username === username
       }));
       
       setMessages(transformedMessages);
@@ -110,17 +121,18 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
             if (colonIndex > 0) {
               const user = textMessage.substring(0, colonIndex);
               const message = textMessage.substring(colonIndex + 2);
-              messageData = { user, message };
+              messageData = { user, message, username: user };
             } else {
-              messageData = { user: 'Unknown', message: textMessage };
+              messageData = { user: 'Unknown', message: textMessage, username: 'Unknown' };
             }
           }
 
           // Don't add our own messages (they're already added when sent)
-          if (messageData.user !== currentUser) {
+          const username = getData('username') || getData('userName');
+          if (messageData.user !== currentUser && messageData.username !== username) {
             const newMsg = {
               id: Date.now(),
-              username: messageData.user,
+              username: messageData.username || messageData.user,
               message: messageData.message,
               timestamp: new Date(),
               isCurrentUser: false
@@ -159,8 +171,10 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
 
   // Initialize chat
   useEffect(() => {
-    fetchMessageHistory();
-    connectWebSocket();
+    if (currentUser) {
+      fetchMessageHistory();
+      connectWebSocket();
+    }
 
     return () => {
       if (reconnectTimeoutRef.current) {
@@ -170,7 +184,7 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
         websocketRef.current.close(1000, 'Component unmounting');
       }
     };
-  }, [groupId]);
+  }, [groupId, currentUser]);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -197,9 +211,10 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
 
   // Send message
   const handleSendMessage = () => {
-    if (newMessage.trim() && websocketRef.current && isConnected) {
+    if (newMessage.trim() && websocketRef.current && isConnected && currentUser) {
       const messageData = {
         user: currentUser,
+        username: currentUser,
         message: newMessage.trim()
       };
 
@@ -218,6 +233,8 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
       setNewMessage('');
     } else if (!isConnected) {
       setConnectionError('Not connected to server. Please wait...');
+    } else if (!currentUser) {
+      setConnectionError('Username not found. Please refresh the page.');
     }
   };
 
@@ -254,10 +271,12 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
     connectWebSocket();
   };
 
-  if (isLoading) {
+  if (isLoading || !currentUser) {
     return (
       <div className="flex flex-col h-full bg-orange-50 items-center justify-center">
-        <div className="text-orange-600">Loading chat history...</div>
+        <div className="text-orange-600">
+          {!currentUser ? 'Loading user data...' : 'Loading chat history...'}
+        </div>
       </div>
     );
   }
@@ -278,7 +297,7 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
                 {groupChatInfo.name}
               </h1>
               <p className="text-sm text-orange-600">
-                {groupChatInfo.membersOnline} members online
+                {groupChatInfo.membersOnline} members online • Logged in as {currentUser}
               </p>
             </div>
           </div>
@@ -411,9 +430,9 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
                 onKeyPress={handleKeyPress}
                 placeholder={isConnected ? "Type a message..." : "Connecting..."}
                 rows={1}
-                disabled={!isConnected}
+                disabled={!isConnected || !currentUser}
                 className={`w-full px-4 py-3 border rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none text-orange-900 placeholder-orange-400 ${
-                  isConnected 
+                  isConnected && currentUser
                     ? 'bg-white border-orange-300' 
                     : 'bg-gray-100 border-gray-300 cursor-not-allowed'
                 }`}
@@ -431,9 +450,9 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
           
           <button
             onClick={handleSendMessage}
-            disabled={!newMessage.trim() || !isConnected}
+            disabled={!newMessage.trim() || !isConnected || !currentUser}
             className={`p-3 rounded-full transition-all ${
-              newMessage.trim() && isConnected
+              newMessage.trim() && isConnected && currentUser
                 ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg'
                 : 'bg-orange-200 text-orange-400 cursor-not-allowed'
             }`}
@@ -444,9 +463,14 @@ const ChatPage = ({ currentUser = "You", apiBaseUrl = "ws://localhost:8000" }) =
         
         {/* Status indicator */}
         <div className="mt-2 h-4">
-          {!isConnected && (
+          {!isConnected && currentUser && (
             <div className="text-xs text-orange-600">
               Reconnecting...
+            </div>
+          )}
+          {!currentUser && (
+            <div className="text-xs text-red-600">
+              Username not found in localStorage
             </div>
           )}
         </div>
