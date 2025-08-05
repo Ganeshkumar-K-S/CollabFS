@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname, useParams } from 'next/navigation';
-import { Search, MoreVertical, Trash2, LogOut, Edit3, Files, Users, MessageCircle, Activity, ArrowLeft } from 'lucide-react';
+import { MoreVertical, Trash2, LogOut, Edit3, Files, Users, MessageCircle, Activity, ArrowLeft, Crown, Shield, User, Pencil } from 'lucide-react';
 import ProfilePicture from '@/components/ProfilePicture';
 import {
   Dialog,
@@ -23,7 +23,6 @@ const GroupLayout = ({ children }) => {
   const pathname = usePathname();
   const params = useParams();
   const [showDropdown, setShowDropdown] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [groupData, setGroupData] = useState({
     name: "",
     description: "",
@@ -213,84 +212,144 @@ const GroupLayout = ({ children }) => {
     openDialog(action);
   };
 
+  // Get role icon and styling
+  const getRoleDisplay = (role) => {
+    const roleUpper = role.toUpperCase();
+    switch (roleUpper) {
+        case 'OWNER':
+            return {
+                icon: Crown,
+                text: 'Owner',
+                bgColor: 'bg-gradient-to-r from-yellow-400 to-yellow-600',
+                textColor: 'text-yellow-800',
+                iconColor: 'text-yellow-700'
+            };
+        case 'ADMIN':
+            return {
+                icon: Shield,
+                text: 'Admin',
+                bgColor: 'bg-gradient-to-r from-purple-400 to-purple-600',
+                textColor: 'text-purple-800',
+                iconColor: 'text-purple-700'
+            };
+        case 'EDITOR':
+            return {
+                icon: Pencil,
+                text: 'Editor',
+                bgColor: 'bg-gradient-to-r from-green-400 to-green-600',
+                textColor: 'text-green-800',
+                iconColor: 'text-green-700'
+            };
+        case 'VIEWER':
+            return {
+                icon: Eye,
+                text: 'Viewer',
+                bgColor: 'bg-gradient-to-r from-gray-300 to-gray-500',
+                textColor: 'text-gray-800',
+                iconColor: 'text-gray-700'
+            };
+        default:
+            return {
+                icon: User,
+                text: 'Member',
+                bgColor: 'bg-gradient-to-r from-gray-400 to-gray-600',
+                textColor: 'text-gray-800',
+                iconColor: 'text-gray-700'
+            };
+    }
+};
+
+  const roleDisplay = getRoleDisplay(groupData.userRole);
+  const RoleIcon = roleDisplay.icon;
+
   return (
     <div className="min-h-screen bg-orange-50">
       {/* Header */}
-      <header className="bg-orange-100 shadow-sm border-b border-orange-200">
-        <div className="px-6 py-4">
+      <header className="bg-white shadow-lg border-b border-orange-200">
+        <div className="px-6 py-6">
           <div className="flex items-center justify-between">
             {/* Left side - Back button and Group info */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-6">
               {/* Back button */}
               <button
                 onClick={handleGoBack}
-                className="p-2 hover:bg-orange-200 rounded-lg transition-colors group"
+                className="p-3 hover:bg-orange-100 rounded-xl transition-all duration-200 transform hover:scale-105 group"
                 title="Go back to home"
               >
                 <ArrowLeft className="w-5 h-5 text-orange-700 group-hover:text-orange-900" />
               </button>
               
+              {/* Group Avatar */}
               <div className="relative">
-                <ProfilePicture userName={groupData.name} size="40" />
+                <ProfilePicture userName={groupData.name} size="48" />
               </div>
+
+              {/* Group Info */}
               <div className="flex-1">
-                <h1 className="text-xl font-semibold text-orange-900">
-                  {groupData.loading ? 'Loading...' : groupData.name}
-                </h1>
-                <p className="text-sm text-orange-600">
-                  {groupData.loading ? 'Loading...' : groupData.userRole}
-                </p>
+                <div className="flex items-center space-x-3 mb-2">
+                  <h1 className="text-2xl font-bold text-orange-900">
+                    {groupData.loading ? 'Loading...' : groupData.name}
+                  </h1>
+                  
+                  {/* Role Badge */}
+                  {!groupData.loading && (
+                    <div className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-full ${roleDisplay.bgColor} shadow-md`}>
+                      <RoleIcon className={`w-4 h-4 text-white`} />
+                      <span className="text-white font-semibold text-sm">
+                        {roleDisplay.text}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
                 {groupData.description && !groupData.loading && (
-                  <p className="text-sm text-orange-700 mt-1 max-w-2xl leading-relaxed">
-                    {groupData.description}
+                  <div className="max-w-3xl">
+                    <p className="text-orange-800 leading-relaxed">
+                      {groupData.description}
+                    </p>
+                  </div>
+                )}
+
+                {!groupData.description && !groupData.loading && (
+                  <p className="text-orange-600 italic">
+                    No description available
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Right side - Search and options */}
-            <div className="flex items-center space-x-4">
-              {/* Search bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-orange-500 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-64 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none bg-white"
-                />
-              </div>
-
-              {/* Vertical menu */}
+            {/* Right side - Options menu */}
+            <div className="flex items-center">
               <div className="relative">
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
-                  className="p-2 hover:bg-orange-200 rounded-lg transition-colors"
+                  className="p-3 hover:bg-orange-100 rounded-xl transition-all duration-200 transform hover:scale-105"
                 >
                   <MoreVertical className="w-5 h-5 text-orange-700" />
                 </button>
 
                 {/* Dropdown menu */}
                 {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-orange-200 py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-orange-200 py-2 z-50 backdrop-blur-sm">
                     <button
                       onClick={() => handleDropdownAction('rename')}
-                      className="flex items-center space-x-3 px-4 py-2 text-sm text-orange-800 hover:bg-orange-50 w-full text-left"
+                      className="flex items-center space-x-3 px-4 py-3 text-sm text-orange-800 hover:bg-orange-50 w-full text-left transition-colors"
                     >
                       <Edit3 className="w-4 h-4" />
                       <span>Rename Group</span>
                     </button>
                     <button
                       onClick={() => handleDropdownAction('exit')}
-                      className="flex items-center space-x-3 px-4 py-2 text-sm text-orange-800 hover:bg-orange-50 w-full text-left"
+                      className="flex items-center space-x-3 px-4 py-3 text-sm text-orange-800 hover:bg-orange-50 w-full text-left transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Exit Group</span>
                     </button>
+                    <div className="border-t border-orange-100 my-1"></div>
                     <button
                       onClick={() => handleDropdownAction('delete')}
-                      className="flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                      className="flex items-center space-x-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full text-left transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span>Delete Group</span>
@@ -305,7 +364,7 @@ const GroupLayout = ({ children }) => {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-orange-50 shadow-sm border-r border-orange-200 min-h-[calc(100vh-73px)]">
+        <aside className="w-64 bg-white shadow-lg border-r border-orange-200 min-h-[calc(100vh-97px)]">
           <nav className="p-4">
             <ul className="space-y-2">
               {sidebarItems.map((item) => {
@@ -316,13 +375,13 @@ const GroupLayout = ({ children }) => {
                   <li key={item.path}>
                     <button
                       onClick={() => handleSidebarClick(item.path)}
-                      className={`flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-left transition-colors ${
+                      className={`flex items-center space-x-3 w-full px-4 py-3 rounded-xl text-left transition-all duration-200 transform hover:scale-105 ${
                         isActive
-                          ? 'bg-orange-200 text-orange-900 border border-orange-300'
+                          ? 'bg-gradient-to-r from-orange-400 to-orange-600 text-white shadow-lg'
                           : 'text-orange-800 hover:bg-orange-100'
                       }`}
                     >
-                      <Icon className={`w-5 h-5 ${isActive ? 'text-orange-900' : 'text-orange-600'}`} />
+                      <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-orange-600'}`} />
                       <span className="font-medium">{item.name}</span>
                     </button>
                   </li>
