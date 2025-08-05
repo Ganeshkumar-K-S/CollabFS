@@ -40,7 +40,7 @@ class GroupConnectionManager:
 manager = GroupConnectionManager()
 
 
-@chat_engine.websocket("/ws/{group_id}")
+@chat_engine.websocket("/ws/{group_id}",dependencies=[Depends(verify_chat_api)])
 async def group_chat(websocket: WebSocket, group_id: str, db=Depends(get_db)):
     await manager.connect(group_id, websocket)
 
@@ -67,7 +67,7 @@ async def group_chat(websocket: WebSocket, group_id: str, db=Depends(get_db)):
         manager.disconnect(group_id, websocket)
 
 
-@chat_engine.get("/history/{group_id}")
+@chat_engine.get("/history/{group_id}",dependencies=[Depends(verify_chat_api)])
 async def get_messages(group_id: str, db=Depends(get_db)):
     try:
         # Get the last 100 messages sorted by latest first
@@ -99,6 +99,6 @@ async def get_messages(group_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@chat_engine.get('/onlinemembers/{group_id}')
+@chat_engine.get('/onlinemembers/{group_id}',dependencies=[Depends(verify_chat_api)])
 def get_online_members(group_id):
     return manager.get_active_members(group_id)
