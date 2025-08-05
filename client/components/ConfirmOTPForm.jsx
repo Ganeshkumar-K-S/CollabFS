@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { setUserData, getData, setTempData, getTempData, clearTempData, clearAllTempData } from '../utils/localStorage'; // Added missing imports
+import { setUserData, getData, setTempData, getTempData, clearTempData, clearAllTempData } from '../utils/localStorage';
 
 export default function ConfirmOTPForm() {
-  const email = getData('userEmail');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
   const [canResend, setCanResend] = useState(false);
@@ -20,6 +20,12 @@ export default function ConfirmOTPForm() {
   // API configuration
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
   const AUTH_API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY || 'your-api-key';
+
+  // Get email from localStorage
+  useEffect(() => {
+    const storedEmail = getData('userEmail');
+    setEmail(storedEmail);
+  }, []);
 
   useEffect(() => {
     const source = searchParams.get('from');
@@ -49,11 +55,11 @@ export default function ConfirmOTPForm() {
       }
     };
 
-    // Only send OTP if we're on the signup flow
-    if (isFromSignup) {
+    // Only send OTP if we're on the signup flow and email is available
+    if (isFromSignup && email) {
       sendInitialOTP();
     }
-  }, [isFromSignup, router, email]); // Added email dependency
+  }, [isFromSignup, router, email]);
 
   useEffect(() => {
     if (timeLeft > 0) {
@@ -78,7 +84,7 @@ export default function ConfirmOTPForm() {
           'Content-Type': 'application/json',
           'x-api-key': AUTH_API_KEY
         },
-        body: JSON.stringify({ email: email }) // Fixed: wrap email in object
+        body: JSON.stringify({ email: email })
       });
 
       if (!response.ok) {
@@ -100,9 +106,9 @@ export default function ConfirmOTPForm() {
     setIsVerifying(true);
     
     try {
-      const signupEmail = getData('email'); // Fixed variable name
-      const signupUsername = getData('username'); // Fixed variable name
-      const signupHashedPassword = getData('hashedPassword'); // Fixed variable name
+      const signupEmail = getData('userEmail');
+      const signupUsername = getData('username');
+      const signupHashedPassword = getData('hashedPassword');
       
       if (!signupEmail || !signupUsername || !signupHashedPassword) {
         throw new Error('Signup data not found. Please start signup again.');
@@ -132,12 +138,15 @@ export default function ConfirmOTPForm() {
       
       if (data.success) {
         // Store complete user data in localStorage
+        // Based on your backend response structure
         const userData = {
-          email: data.session_details.email,
-          username: data.session_details.username,
-          hashedPassword: signupHashedPassword,
+          email: data.email,
+          username: data.username,
+          hashedPassword: data.hashedPassword,
           jwtToken: data.token
         };
+        
+        setUserData(userData);
         console.log("Account created successfully, user data stored, redirecting...");
         router.push('/home');
       } else {
@@ -148,12 +157,14 @@ export default function ConfirmOTPForm() {
       console.error('OTP verification and account creation failed:', error);
       setIsVerifying(false);
       
-      // Clear temp data on error
-      clearAllTempData();
-      
-      // Handle error (show toast, redirect to signup, etc.)
+      // Handle error (show toast or alert, but don't redirect back)
       alert(error.message || 'Verification failed. Please try again.');
-      router.push('/auth/signup?error=verification_failed');
+      
+      // Only clear temp data and redirect if it's a critical error (not just wrong OTP)
+      if (error.message && error.message.includes('Signup data not found')) {
+        clearAllTempData();
+        router.push('/auth/signup?error=verification_failed');
+      }
     }
   };
 
@@ -162,8 +173,8 @@ export default function ConfirmOTPForm() {
     setIsResending(true);
     
     try {
-      // Get email from localStorage (since we're using getData consistently)
-      const signupEmail = getData('email'); // Changed from getTempData to getData
+      // Get email from localStorage
+      const signupEmail = getData('userEmail');
       
       if (!signupEmail) {
         throw new Error('Email not found. Please start signup again.');

@@ -99,9 +99,9 @@ async def sendotp_api(request: EmailRequest):
         },
         upsert=True
     )
-    
-    now = datetime.now()
-    
+
+    now = datetime.now(timezone.utc)
+
     message = MessageSchema(
         subject="Your OTP Code",
         recipients=[email],
@@ -131,20 +131,28 @@ async def setuserid_api(request: UserModel):
             )
         
         expiry_minutes = 10
-        if (datetime.now(timezone.utc) - otp_entry["createdAt"]).total_seconds() > expiry_minutes * 60:
+        current_time = datetime.now(timezone.utc)
+        created_at = otp_entry["createdAt"]
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        if created_at.tzinfo is None:
+            # If stored datetime is naive, assume it's UTC
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        
+        if (current_time - created_at).total_seconds() > expiry_minutes * 60:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="OTP expired"
             )
 
-        user_id = auth_util.generate_userid(request.username)
+        user_id = await auth_util.generate_userid(request.username,db)
         
         await db.user.insert_one({
             "_id": user_id,
             "name": request.username,
             "pwd": request.pwd,
             "email": request.email,
-            "createdAt": datetime.now(timezone.utc),
+            "createAt": created_at,
             "lastAccessed": datetime.now(timezone.utc),
             "storageUsed": Int64(0)
         })
@@ -155,15 +163,14 @@ async def setuserid_api(request: UserModel):
             "email": request.email
         })
 
-
         await db.otp_store.delete_one({"email": request.email, "otp": request.otp})
 
         return {
             "success": True,
             "token": token,
-            "email":request.email,
-            "username":request.username,
-            "hashedPassword":request.pwd
+            "email": request.email,
+            "username": request.username,
+            "hashedPassword": request.pwd
         }
 
     except HTTPException as he:

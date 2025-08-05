@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, CheckCircle, X } from 'lucide-react';
 import GoogleIcon from './GoogleIcon'; // Adjust path as needed
 import Divider from './Divider'; // Adjust path as needed
-import { isUserLoggedIn, setTempData, clearAllTempData, setUserData } from '@/utils/localStorage';
+import { isUserLoggedIn, setUserData, clearAllTempData, clearUserData } from '@/utils/localStorage';
 import { useRouter } from 'next/navigation';
 
 export default function SignupForm({
@@ -60,8 +60,8 @@ export default function SignupForm({
       errors.push('Username must be at least 3 characters long');
     }
 
-    if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
-      errors.push('Username can only contain letters, numbers, and underscores');
+    if (username && !/^[a-zA-Z0-9_ ]+$/.test(username)) {
+      errors.push('Username can only contain letters, numbers, underscores, and spaces');
     }
 
     if (password && !isPasswordValid) {
@@ -152,8 +152,8 @@ export default function SignupForm({
       // Save user data to localStorage
       setUserData(userData);
 
-      window.location.href = '/auth/confirm?from=signup';
-
+      // Navigate to confirmation page
+      router.push('/auth/confirm?from=signup');
 
     } catch (error) {
       console.error('Signup error:', error);
@@ -161,9 +161,6 @@ export default function SignupForm({
       
       // Clear temporary data and user data on error
       clearAllTempData();
-      
-      // Also clear any user data that might have been stored
-      const { clearUserData } = await import('@/utils/localStorage');
       clearUserData();
     } finally {
       setIsLoading(false);
