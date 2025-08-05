@@ -168,6 +168,7 @@ async def setuserid_api(request: UserModel):
         return {
             "success": True,
             "token": token,
+            "id": user_id,
             "email": request.email,
             "username": request.username,
             "hashedPassword": request.pwd

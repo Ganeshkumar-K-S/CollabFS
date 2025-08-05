@@ -140,6 +140,7 @@ export default function ConfirmOTPForm() {
         // Store complete user data in localStorage
         // Based on your backend response structure
         const userData = {
+          id: data.id,
           email: data.email,
           username: data.username,
           hashedPassword: data.hashedPassword,
