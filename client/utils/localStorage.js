@@ -7,7 +7,7 @@ export const setUserData = (userData) => {
         if (userData.hashedPassword) localStorage.setItem('hashedPassword', userData.hashedPassword)
         if (userData.jwtToken) localStorage.setItem('jwtToken', userData.jwtToken)
         if(userData.id) localStorage.setItem('userId', userData.id);
-
+        if(userData.otp) localStorage.setItem('otp', userData.otp);
         console.log('User data saved to localStorage:', userData);
     } catch (error) {
         console.error('Failed to save user data to localStorage:', error);

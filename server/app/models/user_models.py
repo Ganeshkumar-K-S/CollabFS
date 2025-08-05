@@ -37,3 +37,7 @@ class UpdatePassword(BaseModel):
     email:str
     pwd:str
     otp:str
+    
+class OtpModel(BaseModel):
+    email: str
+    otp: str

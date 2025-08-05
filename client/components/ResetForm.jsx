@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from './AuthWrapper';
+import { setUserData , getTempData , clearAllTempData } from '../utils/localStorage'; // Adjust import based on your temp storage implementation
 
 export default function ResetForm() {
   const router = useRouter();
@@ -15,26 +15,25 @@ export default function ResetForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // Get auth state from context
-  const {
-    password,
-    setPassword,
-    getTempData,
-    clearAllTempData,
-    updateUserData
-  } = useAuth();
-
+  // API configuration (same as ForgotForm)
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://127.0.0.1:8000';
+  const API_KEY = process.env.NEXT_PUBLIC_AUTH_API_KEY;
+  const [password, setPassword] = useState('');
   // Check if user came from forgot password flow
   const source = searchParams.get('from') || 'none';
   const fromForgot = source === 'forgot';
 
   useEffect(() => {
-    // Check if user has proper authorization to reset password
+    console.log("Checking authorization for reset page...");
     const otpVerified = getTempData('otpVerified');
-    const resetEmail = getTempData('resetEmail');
-    
-    if (!fromForgot || !otpVerified || !resetEmail) {
-      console.log("Unauthorized access to reset page. Redirecting to forgot password...");
+    const verifiedEmail = getTempData('verifiedEmail');
+
+    if (!fromForgot || !otpVerified || !verifiedEmail) {
+      console.log("Unauthorized access to reset page. Missing data:", {
+        fromForgot,
+        otpVerified,
+        verifiedEmail
+      });
       router.push('/auth/forgot');
       return;
     }
@@ -52,7 +51,56 @@ export default function ResetForm() {
         return;
       }
     }
+    
+    console.log("Authorization check passed!");
   }, [fromForgot, router, getTempData, clearAllTempData]);
+
+  // API function to update password
+  const updatePassword = async (email, otp, newPassword) => {
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/auth/updatepassword`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY
+        },
+        body: JSON.stringify({
+          email: email,
+          otp: otp,
+          pwd: newPassword
+        })
+      });
+
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (err) {
+        throw new Error("Invalid JSON response from server");
+      }
+
+      console.log('Update password API response:', responseData);
+
+      if (!response.ok) {
+        // Handle FastAPI error response
+        if (responseData.detail) {
+          throw new Error(
+            typeof responseData.detail === "string"
+              ? responseData.detail
+              : responseData.detail[0]?.msg || "Failed to update password"
+          );
+        } else {
+          throw new Error("Failed to update password");
+        }
+      }
+
+      return responseData;
+
+    } catch (error) {
+      console.error('Update password API error:', error);
+      throw error;
+    }
+  };
 
   // Password validation rules
   const passwordValidation = {
@@ -93,20 +141,39 @@ export default function ResetForm() {
       setIsUpdating(true);
       console.log("Updating password...");
       
-      // Get reset email from temp data
+      // Get reset data from temp storage
+      const verifiedEmail = getTempData('verifiedEmail');
       const resetEmail = getTempData('resetEmail');
+      const verifiedOtp = getTempData('verifiedOtp');
       
-      // Simulate API call to update password
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Use either verifiedEmail or resetEmail (fallback)
+      const emailToUse = verifiedEmail || resetEmail;
       
-      // Update user data in context (simulate successful password reset)
-      updateUserData({
-        email: resetEmail,
-        hashedPassword: 'hashed-' + password, // In real app, this would be done server-side
-        jwtToken: 'new-jwt-token-' + Date.now() // New token after password reset
+      console.log("Retrieved temp data for password reset:", {
+        verifiedEmail,
+        resetEmail,
+        emailToUse,
+        verifiedOtp
+      });
+      
+      if (!emailToUse || !verifiedOtp) {
+        throw new Error("Session expired. Please start the reset process again.");
+      }
+
+      // Call the actual API to update password
+      console.log("Calling update password API...");
+      const response = await updatePassword(emailToUse, verifiedOtp, password);
+      
+      console.log("Password updated successfully:", response);
+      
+      setUserData({
+        email: emailToUse,
+        hashedPassword: response.pwd,
+        token: response.token,
+        id: response.user_id,
+        username: response.username || '' // Assuming username is part of the response
       });
 
-      console.log("Password updated successfully");
       setSuccess(true);
       
       // Clear all temp data
@@ -140,7 +207,7 @@ export default function ResetForm() {
           </div>
           <h2 className="text-xl font-semibold text-gray-900">Password Updated Successfully!</h2>
           <p className="text-sm text-gray-600">
-            Your password has been updated. You're now being signed in...
+            Your password has been updated. Redirecting to login...
           </p>
           <div className="flex items-center justify-center mt-4">
             <div className="w-4 h-4 border-2 border-gray-300 border-t-green-600 rounded-full animate-spin"></div>

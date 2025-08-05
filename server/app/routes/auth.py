@@ -4,7 +4,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from passlib.context import CryptContext
 from app.db.connection import db
 import app.utils.auth_util as auth_util
-from app.models.user_models import User,LoginModel,SignupModel,UserModel,EmailRequest,UpdatePassword
+from app.models.user_models import User,LoginModel,SignupModel,UserModel,EmailRequest,UpdatePassword,OtpModel
 from datetime import datetime,timezone
 import os
 from fastapi_mail import FastMail,MessageSchema,ConnectionConfig
@@ -183,6 +183,55 @@ async def setuserid_api(request: UserModel):
             detail=f"User registration failed: {str(e)}"
         )
 
+@file_engine.post("/email/verifyotp", dependencies=[Depends(verify_auth_api)])
+async def verifyotp_api(request: OtpModel):
+    try:
+        email = request.email
+        otp = request.otp
+        
+        # Find OTP entry in database
+        otp_entry = await db.otp_store.find_one({"email": email, "otp": otp})
+        
+        if not otp_entry:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid OTP or email mismatch"
+            )
+        
+        # Check OTP expiry (10 minutes)
+        expiry_minutes = 10
+        current_time = datetime.now(timezone.utc)
+        created_at = otp_entry["createdAt"]
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        if created_at.tzinfo is None:
+            # If stored datetime is naive, assume it's UTC
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        
+        if (current_time - created_at).total_seconds() > expiry_minutes * 60:
+            # Clean up expired OTP
+            await db.otp_store.delete_one({"email": email, "otp": otp})
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="OTP expired"
+            )
+        
+        # OTP is valid - return success with the OTP for frontend verification
+        return {
+            "success": True,
+            "message": "OTP verified successfully",
+            "otp": otp,
+            "email": email
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"OTP verification error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"OTP verification failed: {str(e)}"
+        )
 
 @file_engine.post("/email/login", dependencies=[Depends(verify_auth_api)])
 async def login_api(request: LoginModel):
@@ -295,24 +344,55 @@ async def login_via_google(request: Request):
     print("Redirect URI:", redirect_uri)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-@file_engine.get("/updatepassword")
-async def updatepassword(request:UpdatePassword):
-    email=request.email
-    otp=request.otp
-    otp_entry = await db.otp_store.find_one({"email": request.email, "otp": request.otp})
-    await db.otp_store.delete_one({"email": request.email, "otp": request.otp})
-    pwd=auth_util.get_password_hash(request.pwd)
+@file_engine.post("/updatepassword")
+async def updatepassword(request: UpdatePassword):
+    email = request.email
+    otp = request.otp
+
+    # Validate OTP
+    otp_entry = await db.otp_store.find_one({"email": email, "otp": otp})
+    if not otp_entry:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid OTP or email mismatch"
+        )
+
+    # Remove used OTP
+    await db.otp_store.delete_one({"email": email, "otp": otp})
+
+    # Get user document
+    user_doc = await db.user.find_one({"email": email} , {"_id": 1, "name": 1, "email": 1})
+    if not user_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    print("User document found:", user_doc)
+    # Hash new password
+    hashed_pwd = auth_util.get_password_hash(request.pwd)
+
+    # Update password
     await db.user.update_one(
-        {"email": email}, 
-        {
-            "$set": {
-                "pwd":pwd
-            }
-        },
-        upsert=True
+        {"email": email},
+        {"$set": {"pwd": hashed_pwd}}
     )
 
-    return {"pwd":pwd}
+    # Generate JWT token
+    token = auth_util.generate_token({
+        "id": user_doc["_id"],
+        "name": user_doc["name"],
+        "email": user_doc["email"]
+    })
+
+    return {
+        "success": True,
+        "pwd": hashed_pwd,
+        "token": token,
+        "user_id": user_doc["_id"],
+        "username": user_doc.get("name", ""),
+        "email": user_doc["email"]
+    }
 
 
 
