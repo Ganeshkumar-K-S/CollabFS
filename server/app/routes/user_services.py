@@ -61,7 +61,7 @@ async def search_user(username: str, db: AsyncIOMotorDatabase = Depends(get_db))
             }
         ]
 
-        cursor = db.users.aggregate(pipeline)
+        cursor = db.user.aggregate(pipeline)
         results = []
 
         async for doc in cursor:
@@ -76,5 +76,5 @@ async def search_user(username: str, db: AsyncIOMotorDatabase = Depends(get_db))
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
-
+@file_engine.post
 
