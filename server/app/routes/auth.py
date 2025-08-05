@@ -4,7 +4,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from passlib.context import CryptContext
 from app.db.connection import db
 import app.utils.auth_util as auth_util
-from app.models.user_models import User
+from app.models.user_models import User,LoginModel,SignupModel,UserModel,EmailRequest
 from datetime import datetime,timezone
 import os
 from fastapi_mail import FastMail,MessageSchema,ConnectionConfig
@@ -15,22 +15,25 @@ from starlette.config import Config
 from urllib.parse import urlencode
 from fastapi.responses import RedirectResponse
 import warnings
+from bson import Int64
+
 warnings.filterwarnings("ignore", message="Valid config keys have changed in V2")
 
 file_engine = APIRouter(prefix="/auth")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
 mail_config = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
-    MAIL_FROM=os.getenv("MAIL_FROM"),
-    MAIL_PORT=int(os.getenv("MAIL_PORT")),
-    MAIL_SERVER=os.getenv("MAIL_SERVER"),
-    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS") == "True",
-    MAIL_SSL_TLS=os.getenv("MAIL_SSL_TLS") == "True",
-    USE_CREDENTIALS=os.getenv("USE_CREDENTIALS") == "True",
-    VALIDATE_CERTS=os.getenv("VALIDATE_CERTS") == "True",
-    TEMPLATE_FOLDER=Path(__file__).resolve().parent.parent / os.getenv("TEMPLATE_FOLDER")
+    MAIL_USERNAME="collabfs1@gmail.com",
+    MAIL_PASSWORD="wkhvwphobhsfxmjh",
+    MAIL_FROM="collabfs1@gmail.com",
+    MAIL_PORT=587,
+    MAIL_SERVER="smtp.gmail.com",
+    MAIL_STARTTLS=True,     
+    MAIL_SSL_TLS=False,      
+    USE_CREDENTIALS=True,
+    TEMPLATE_FOLDER=Path(__file__).resolve().parent.parent / os.getenv("TEMPLATE_FOLDER"),
 )
+
 
 oauth = OAuth()
 config = Config(environ=os.environ)
@@ -43,21 +46,6 @@ oauth.register(
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'},
 )
-
-class LoginModel(BaseModel):
-    email: str
-    pwd: str
-
-class SignupModel(BaseModel):
-    email: str
-    username: str
-    pwd: str
-
-class UserModel(BaseModel):
-    email: str
-    username: str
-    pwd: str
-    otp: str
 
 def verify_auth_api(request : Request):
     expected_key=os.getenv('AUTH_API_KEY')
@@ -96,29 +84,38 @@ async def signup_api(response: SignupModel):
             detail="Invalid user data"
         )
         
-@file_engine.post("/email/signup/sendotp",dependencies=[Depends(verify_auth_api)])
-async def sendotp_api(email:str):
-    otp=auth_util.generate_otp()
+@file_engine.post("/email/signup/sendotp", dependencies=[Depends(verify_auth_api)])
+async def sendotp_api(request: EmailRequest):
+    email = request.email
+    otp = auth_util.generate_otp()
+    
     await db.otp_store.update_one(
-            {"email": email}, 
-            {
-                "$set": {
-                    "otp": otp,
-                    "createdAt": datetime.now(timezone.utc)
-                }
-            },
-            upsert=True
-        )
-    now=datetime.now()
+        {"email": email}, 
+        {
+            "$set": {
+                "otp": otp,
+                "createdAt": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+    
+    now = datetime.now()
     
     message = MessageSchema(
         subject="Your OTP Code",
         recipients=[email],
-        template_body={"otp": otp,"purpose":"To complete your signup","date":now.strftime("%d-%B-%Y")},
+        template_body={
+            "otp": otp,
+            "purpose": "To complete your signup",
+            "date": now.strftime("%d-%B-%Y")
+        },
         subtype="html"
     )
+    
     fm = FastMail(mail_config)
-    fm.send_message(message, template_name="otp_template.html")
+    await fm.send_message(message, template_name="otp_template.html")
+    
     return {"message": "OTP sent successfully"}
 
 
@@ -148,7 +145,8 @@ async def setuserid_api(request: UserModel):
             "pwd": request.pwd,
             "email": request.email,
             "createdAt": datetime.now(timezone.utc),
-            "lastAccessed": datetime.now(timezone.utc)
+            "lastAccessed": datetime.now(timezone.utc),
+            "storageUsed": Int64(0)
         })
 
         token = auth_util.generate_token({
@@ -157,17 +155,15 @@ async def setuserid_api(request: UserModel):
             "email": request.email
         })
 
-        session_credentials = {
-            "username": request.username,
-            "email": request.email
-        }
 
         await db.otp_store.delete_one({"email": request.email, "otp": request.otp})
 
         return {
             "success": True,
             "token": token,
-            "session_details": session_credentials
+            "email":request.email,
+            "username":request.username,
+            "hashedPassword":request.pwd
         }
 
     except HTTPException as he:
@@ -201,7 +197,7 @@ async def login_api(request: LoginModel):
             return {"success": False, "message": "Password does not match"}
         
         print("Generating token...")
-        # Make sure this function only returns a string
+
         token = auth_util.generate_token({
             "id": user.id,
             "name": user.name,
@@ -251,7 +247,7 @@ async def auth(request: Request):
                 "pwd": "",
                 "createAt": datetime.now(timezone.utc),
                 "lastAccessed": datetime.now(timezone.utc),
-                "storageUsed": 0
+                "storageUsed": Int64(0) 
             })
         else:
             user_id = user_doc["_id"]

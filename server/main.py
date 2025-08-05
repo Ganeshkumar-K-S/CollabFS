@@ -13,7 +13,6 @@ import secrets
 app = FastAPI()
 
 
-# ✅ CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,7 +21,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET"),
+    same_site="lax", 
+    https_only=False  
+)
+
 
 @app.get('/hello')
 def hello_world():
