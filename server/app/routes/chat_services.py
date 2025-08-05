@@ -1,12 +1,23 @@
-from fastapi import WebSocket, WebSocketDisconnect, APIRouter, HTTPException, Depends
+from fastapi import WebSocket, WebSocketDisconnect, APIRouter, HTTPException, Depends, Request
 import collections
 from app.db.connection import get_db
 from datetime import datetime, timezone
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 chat_engine = APIRouter(prefix="/chat")
 
 
-# Manager to handle connections per group
+def verify_chat_api(request : Request):
+    expected_key=os.env.get('CHAT_API_KEY')
+    request_key=request.get('x-api-key')
+    if expected_key != request_key:
+        raise HTTPException(
+            status_code=403,
+            detail="Access Forbidden"
+        )
+
 class GroupConnectionManager:
     def __init__(self):
         self.groups = collections.defaultdict(list)
@@ -21,6 +32,9 @@ class GroupConnectionManager:
     async def send_to_group(self, group_id, message: str):
         for connection in self.groups[group_id]:
             await connection.send_text(message)
+
+    def get_active_members(self,group_id):
+        return len(self.groups[group_id])
 
 
 manager = GroupConnectionManager()
@@ -83,3 +97,8 @@ async def get_messages(group_id: str, db=Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@chat_engine.get('/onlinemembers/{group_id}')
+def get_online_members(group_id):
+    return manager.get_active_members(group_id)

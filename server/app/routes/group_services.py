@@ -548,6 +548,7 @@ async def get_group_details(
     
 @group_engine.get("/activities/{group_id}",dependencies=[Depends(verify_group_api)])
 async def get_group_activities(
+        group_id,
         db : AsyncIOMotorDatabase = Depends(get_db)
-):
-    act_data=db.activities.find()
+    ):
+    pass
