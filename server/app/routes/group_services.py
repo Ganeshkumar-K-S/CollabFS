@@ -545,3 +545,9 @@ async def get_group_details(
             status_code=500,
             detail=f"Internal Server Error: {str(e)}"
         )
+    
+@group_engine.get("/activities/{group_id}",dependencies=[Depends(verify_group_api)])
+async def get_group_activities(
+        db : AsyncIOMotorDatabase = Depends(get_db)
+):
+    act_data=db.activities.find()
