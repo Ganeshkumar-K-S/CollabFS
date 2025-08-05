@@ -66,7 +66,7 @@ async def search_user(username: str, db: AsyncIOMotorDatabase = Depends(get_db))
 
         async for doc in cursor:
             results.append({
-                "userId": str(doc["_id"]),
+                "userId": doc["_id"],
                 "username": doc["name"]
             })
 
