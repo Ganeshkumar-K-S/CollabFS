@@ -134,23 +134,32 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
 
             websocketRef.current.onmessage = (event) => {
                 try {
-                    console.log('Received message:', event.data); // Debug log
+                    console.log('Received WebSocket message:', event.data); // Debug log
                     const data = JSON.parse(event.data);
                     
                     // Handle different message types
                     if (data.type === 'message') {
-                        const isSelf = data.user === currentUserId;
-                        if (!isSelf) {
-                            const msg = {
-                                id: data.id || Date.now(),
-                                userId: data.user,
-                                username: data.username,
-                                message: data.message,
-                                timestamp: data.timestamp, // ISO format from backend
-                                isCurrentUser: false,
-                            };
-                            setMessages((prev) => [...prev, msg]);
-                        }
+                        console.log('Processing message:', data); // Debug log
+                        const msg = {
+                            id: data.id || Date.now(),
+                            userId: data.user,
+                            username: data.username,
+                            message: data.message,
+                            timestamp: data.timestamp, // ISO format from backend
+                            isCurrentUser: data.user === currentUserId,
+                        };
+                        
+                        // Add message to state
+                        setMessages((prev) => {
+                            // Check if message already exists to prevent duplicates
+                            const messageExists = prev.some(m => m.id === msg.id);
+                            if (messageExists) {
+                                console.log('Duplicate message, skipping:', msg.id);
+                                return prev;
+                            }
+                            console.log('Adding new message to UI:', msg);
+                            return [...prev, msg];
+                        });
                     } else if (data.type === 'online_count') {
                         console.log('Updating online count:', data.count); // Debug log
                         setOnlineCount(data.count);
@@ -159,7 +168,7 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
                         console.log('Unknown message type or legacy format:', data);
                     }
                 } catch (err) {
-                    console.error('Failed to parse message:', err, 'Raw data:', event.data);
+                    console.error('Failed to parse WebSocket message:', err, 'Raw data:', event.data);
                 }
             };
 
@@ -263,19 +272,12 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
             timestamp: new Date().toISOString()
         };
 
-        const msg = {
-            id: Date.now(),
-            userId: currentUserId,
-            username: currentUser,
-            message: newMessage.trim(),
-            timestamp: new Date().toISOString(),
-            isCurrentUser: true,
-        };
-
         try {
-            console.log('Sending message:', messageData); // Debug log
+            console.log('Sending message via WebSocket:', messageData); // Debug log
             websocketRef.current.send(JSON.stringify(messageData));
-            setMessages((prev) => [...prev, msg]);
+            
+            // Don't add message to UI here - wait for server confirmation
+            // The server will broadcast the message back to all clients including sender
             setNewMessage('');
         } catch (err) {
             console.error('Failed to send message:', err);

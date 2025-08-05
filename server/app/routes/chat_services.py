@@ -54,13 +54,17 @@ class GroupConnectionManager:
         message_str = json.dumps(message)
         connections_to_remove = []
         
+        print(f"Sending to group {group_id}: {message_str}")
+        
         for connection in self.groups[group_id]:
             if exclude_websocket and connection == exclude_websocket:
                 continue
                 
             try:
                 await connection.send_text(message_str)
-            except Exception:
+                print(f"Message sent to connection successfully")
+            except Exception as e:
+                print(f"Failed to send message to connection: {e}")
                 # Connection is closed, mark for removal
                 connections_to_remove.append(connection)
         
@@ -94,9 +98,11 @@ async def group_chat(
     
     try:
         await manager.connect(group_id, websocket)
+        print(f"WebSocket connected for group {group_id}")
         
         while True:
             data = await websocket.receive_json()
+            print(f"Received data: {data}")
             
             # Handle different message types
             message_type = data.get("type", "message")
@@ -105,6 +111,8 @@ async def group_chat(
                 # Store user identification
                 user_id = data.get("user", "anonymous")
                 username = data.get("username", "Anonymous")
+                
+                print(f"User identified: {username} ({user_id})")
                 
                 # Update connection with user info
                 connection_key = f"{group_id}_{id(websocket)}"
@@ -126,6 +134,8 @@ async def group_chat(
                 if not message.strip():
                     continue
                 
+                print(f"Processing message from {username}: {message}")
+                
                 # Create timestamp in ISO format
                 timestamp = datetime.now(timezone.utc)
                 
@@ -139,6 +149,7 @@ async def group_chat(
                 }
                 
                 result = await db.chat.insert_one(chat_doc)
+                print(f"Message saved to DB with ID: {result.inserted_id}")
                 
                 # Create message for broadcasting
                 broadcast_message = {
@@ -151,17 +162,22 @@ async def group_chat(
                     "group_id": group_id
                 }
                 
-                # Broadcast to all group members except sender
-                await manager.send_to_group(group_id, broadcast_message, exclude_websocket=websocket)
+                print(f"Broadcasting message to {len(manager.groups[group_id])} connections")
+                
+                # Broadcast to ALL group members (including sender for confirmation)
+                await manager.send_to_group(group_id, broadcast_message)
                 
     except WebSocketDisconnect:
-        pass
+        print(f"WebSocket disconnected for group {group_id}")
     except Exception as e:
         print(f"WebSocket error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         manager.disconnect(group_id, websocket)
         # Broadcast updated online count after disconnect
         await manager.broadcast_online_count(group_id)
+        print(f"Cleaned up connection for group {group_id}")
 
 @chat_engine.get("/history/{group_id}", dependencies=[Depends(verify_chat_api)])
 async def get_messages(group_id: str, db=Depends(get_db)):
