@@ -4,13 +4,14 @@ from app.db.connection import get_db
 from datetime import datetime, timezone
 import os
 from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorDatabase
 load_dotenv()
 
 chat_engine = APIRouter(prefix="/chat")
 
 
 def verify_chat_api(request : Request):
-    expected_key=os.env.get('CHAT_API_KEY')
+    expected_key=os.getenv('CHAT_API_KEY')
     request_key=request.get('x-api-key')
     if expected_key != request_key:
         raise HTTPException(
@@ -40,8 +41,12 @@ class GroupConnectionManager:
 manager = GroupConnectionManager()
 
 
-@chat_engine.websocket("/ws/{group_id}",dependencies=[Depends(verify_chat_api)])
-async def group_chat(websocket: WebSocket, group_id: str, db=Depends(get_db)):
+@chat_engine.websocket("/ws/{group_id}")
+async def group_chat(
+    websocket: WebSocket,
+    group_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
     await manager.connect(group_id, websocket)
 
     try:
