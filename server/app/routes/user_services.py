@@ -10,6 +10,7 @@ from app.models.group_members_model import addUserModel
 from starlette.status import HTTP_403_FORBIDDEN
 from app.db.connection import get_db
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import List
 
 file_engine = APIRouter(prefix="/user")
 
@@ -76,5 +77,34 @@ async def search_user(username: str, db: AsyncIOMotorDatabase = Depends(get_db))
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@file_engine.post
+@file_engine.post("/adduser", dependencies=[Depends(verify_userservices_api)])
+async def add_user(
+    users: List[addUserModel], 
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    try:
+        user_docs = [user.model_dump() for user in users]
+
+        async with await db.client.start_session() as session:
+            async with session.start_transaction():
+                for doc in user_docs:
+                    userId = doc["userId"]
+                    groupId = doc["groupId"]
+                    role = doc["role"]
+                    
+                    await db.groupMembers.insert_one(
+                        {
+                            "userId": userId,
+                            "groupId": groupId,
+                            "role": role,
+                            "joinedAt": datetime.now(timezone.utc)
+                        },
+                        session=session
+                    )
+
+        return {"message": "Inserted successfully"}
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal server error")  
 
