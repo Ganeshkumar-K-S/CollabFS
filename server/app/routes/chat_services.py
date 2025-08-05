@@ -12,7 +12,7 @@ chat_engine = APIRouter(prefix="/chat")
 
 def verify_chat_api(request : Request):
     expected_key=os.getenv('CHAT_API_KEY')
-    request_key=request.get('x-api-key')
+    request_key=request.headers.get('x-api-key')
     if expected_key != request_key:
         raise HTTPException(
             status_code=403,
