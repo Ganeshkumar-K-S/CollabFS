@@ -4,7 +4,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from passlib.context import CryptContext
 from app.db.connection import db
 import app.utils.auth_util as auth_util
-from app.models.user_models import User,LoginModel,SignupModel,UserModel,EmailRequest
+from app.models.user_models import User,LoginModel,SignupModel,UserModel,EmailRequest,UpdatePassword
 from datetime import datetime,timezone
 import os
 from fastapi_mail import FastMail,MessageSchema,ConnectionConfig
@@ -294,3 +294,25 @@ async def login_via_google(request: Request):
     redirect_uri = str(request.url_for("auth"))
     print("Redirect URI:", redirect_uri)
     return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@file_engine.get("/updatepassword")
+async def updatepassword(request:UpdatePassword):
+    email=request.email
+    otp=request.otp
+    otp_entry = await db.otp_store.find_one({"email": request.email, "otp": request.otp})
+    await db.otp_store.delete_one({"email": request.email, "otp": request.otp})
+    pwd=auth_util.get_password_hash(request.pwd)
+    await db.user.update_one(
+        {"email": email}, 
+        {
+            "$set": {
+                "pwd":pwd
+            }
+        },
+        upsert=True
+    )
+
+    return {"pwd":pwd}
+
+
+

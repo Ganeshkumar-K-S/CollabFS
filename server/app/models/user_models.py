@@ -32,3 +32,8 @@ class UserModel(BaseModel):
 
 class EmailRequest(BaseModel):
     email: str
+
+class UpdatePassword(BaseModel):
+    email:str
+    pwd:str
+    otp:str
