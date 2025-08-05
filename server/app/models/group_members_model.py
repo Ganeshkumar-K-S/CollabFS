@@ -5,4 +5,9 @@ class groupMembers(BaseModel):
     userId:str= Field(...,description="User Id")
     groupId: str = Field(..., description="Group Id")
     role: str = Field(..., description="role")
-    joinedAt: datetime = Field(..., description="joined datetime")
+    joinedAt: datetime= Field(..., description="joined datetime")
+
+class addUserModel(BaseModel):
+    userId:str
+    groupId:str
+    role:str
