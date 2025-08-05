@@ -11,3 +11,8 @@ class addUserModel(BaseModel):
     userId:str
     groupId:str
     role:str
+
+class exitGroupModel(BaseModel):
+    userId:str
+    groupId:str
+    role:str

@@ -6,11 +6,12 @@ from app.db.connection import db
 import warnings
 from bson import Int64
 from fastapi import APIRouter,Request,HTTPException,Depends
-from app.models.group_members_model import addUserModel
+from app.models.group_members_model import addUserModel,exitGroupModel
 from starlette.status import HTTP_403_FORBIDDEN
 from app.db.connection import get_db
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List
+from app.utils.auth_util import verify_role
 
 file_engine = APIRouter(prefix="/user")
 
@@ -108,3 +109,126 @@ async def add_user(
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")  
 
+@file_engine("/displayuser",dependencies=[Depends(verify_userservices_api)])
+async def display_user(groupId:str,
+                       db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    try:
+        async with await db.client.start_session() as session:
+            async with session.start_transaction():
+                pipeline=[
+                    {
+                        "$match":{
+                            "groupId":groupId
+                        }
+                    },
+                    {
+                        "$lookup":{
+                            "from": "user",
+                            "localField": "userId",
+                            "foreignField": "userId",
+                            "as": "userDetails"
+                        }
+                    },
+                    {"$unwind": "$userDetails"} ,
+
+                    {
+                        "$project":{
+                            "_id":"$userDetails._id",
+                            "name":"$userDetails.name",
+                            "email":"$userDetails.email",
+                            "role":"$role"
+                        }
+                    }
+                ]
+
+                cursor = db.groupMembers.aggregate(pipeline)
+                results = await cursor.to_list(length=None)
+        return results
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal server error") 
+
+
+@file_engine.post("/deletegroup",dependencies=[Depends(verify_userservices_api)])
+async def exit_group(request:exitGroupModel,
+                     db:AsyncIOMotorDatabase=Depends(get_db)
+):
+    groupId=request.groupId
+    userId=request.userId
+    try:
+        await verify_role(
+                    user_id=userId,
+                    group_id=groupId,
+                    roles={"Owner"},
+                    db=db
+                    )
+        
+        async with await db.client.start_session() as session:
+            async with session.start_transaction():
+                await db.chat.delete_many({"groupId":groupId},session=session)
+                await db.files.delete_many({"groupId":groupId},session=session)
+                await db.activities.delete_many({"groupId":groupId},session=session)
+                await db.groupMembers.delete_many({"groupId":groupId},session=session)
+                await db.starred.delete_many({"groupId":groupId},session=session)
+                await db.activities.insert_one({
+                    "userId":userId,
+                    "groupId":groupId,
+                    "activityType":"Group deleted",
+                    "fileId":None,
+                    "timestamp":datetime.now(timezone.utc)
+                },
+                session=session
+                )
+        
+        return {"message":"deletion successful"}
+    
+
+    except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
+                    
+@file_engine.post("/exitgroup",dependencies=[Depends(verify_userservices_api)])
+async def exit_group(request:exitGroupModel,
+                     db:AsyncIOMotorDatabase=Depends(get_db)
+):
+    groupId=request.groupId
+    userId=request.userId
+    try:
+        if request.role!="owner":
+            async with await db.client.start_session() as session:
+                async with session.start_transaction():
+                    await db.groupMembers.delete_many(
+                        {
+                        "groupId":groupId,
+                        "userId":userId
+                        },
+                        session=session)
+                    await db.activities.insert_one({
+                        "userId":userId,
+                        "groupId":groupId,
+                        "activityType":"Exited from group",
+                        "fileId":None,
+                        "timestamp":datetime.now(timezone.utc)
+                        },
+                        session=session
+                        )
+            return {"message":"group exited successfully"}
+        else:
+            async with await db.client.start_session() as session:
+                async with session.start_transaction():
+                    await db.groupMembers.delete_many({"groupId": groupId}, session=session)
+                    await db.groups.delete_one({"_id": groupId}, session=session)
+                    await db.activities.insert_one(
+                        {
+                            "userId": userId,
+                            "groupId": groupId,
+                            "activityType": "Group deleted by owner",
+                            "fileId": None,
+                            "timestamp": datetime.now(timezone.utc)
+                        },
+                        session=session
+                    )
+            return {"message": "Group deleted successfully because owner exited"}
+    except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
