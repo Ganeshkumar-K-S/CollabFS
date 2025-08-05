@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Copy, Wifi, WifiOff } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { getData } from '@/utils/localStorage'; // your util
@@ -22,6 +22,8 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
     const messagesEndRef = useRef(null);
     const websocketRef = useRef(null);
     const reconnectTimeoutRef = useRef(null);
+    const reconnectAttempts = useRef(0);
+    const maxReconnectAttempts = 5;
 
     // Mock data for group chat info
     const groupChatInfo = {
@@ -33,140 +35,232 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
     useEffect(() => {
         const username = getData('username') || getData('userName') || 'Anonymous';
         const userId = getData('userId') || '';
+        console.log('User data loaded:', { username, userId }); // Debug log
         setCurrentUser(username);
         setCurrentUserId(userId);
     }, []);
 
     // Fetch message history
-    const fetchMessageHistory = async () => {
+    const fetchMessageHistory = useCallback(async () => {
+        if (!groupId) return;
+        
         try {
             setIsLoading(true);
-            const res = await fetch(`${apiBaseUrl.replace('ws://', 'http://')}/chat/history/${groupId}`, {
+            const httpUrl = apiBaseUrl.replace('ws://', 'http://').replace('wss://', 'https://');
+            console.log('Fetching history from:', `${httpUrl}/chat/history/${groupId}`); // Debug log
+            
+            const res = await fetch(`${httpUrl}/chat/history/${groupId}`, {
                 headers: {
                     'x-api-key': process.env.NEXT_PUBLIC_CHAT_API_KEY || '',
                 },
             });
+            
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            
             const history = await res.json();
             const transformed = history.map((msg, i) => ({
-                id: i + 1,
+                id: msg.id || i + 1,
                 userId: msg.user,
                 username: msg.username,
                 message: msg.message,
-                timestamp: msg.timestamp,
+                timestamp: msg.timestamp, // Keep ISO format from backend
                 isCurrentUser: msg.user === currentUserId,
             }));
             setMessages(transformed);
             setConnectionError(null);
+            console.log('Message history loaded:', transformed.length, 'messages'); // Debug log
         } catch (err) {
-            setConnectionError('Could not load message history.');
+            console.error('Error fetching message history:', err);
+            setConnectionError('Could not load message history: ' + err.message);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [apiBaseUrl, groupId, currentUserId]);
 
     // Fetch online members
-    const fetchOnlineMembers = async () => {
+    const fetchOnlineMembers = useCallback(async () => {
+        if (!groupId) return;
+        
         try {
-            const res = await fetch(`${apiBaseUrl.replace('ws://', 'http://')}/chat/onlinemembers/${groupId}`, {
+            const httpUrl = apiBaseUrl.replace('ws://', 'http://').replace('wss://', 'https://');
+            const res = await fetch(`${httpUrl}/chat/onlinemembers/${groupId}`, {
                 headers: {
                     'x-api-key': process.env.NEXT_PUBLIC_CHAT_API_KEY || '',
                 },
             });
             const json = await res.json();
-            setOnlineCount(json.online);
-        } catch {
+            setOnlineCount(json.online || 0);
+        } catch (err) {
+            console.error('Error fetching online members:', err);
             setOnlineCount(0);
         }
-    };
+    }, [apiBaseUrl, groupId]);
 
     // Connect WebSocket
-    const connectWebSocket = () => {
+    const connectWebSocket = useCallback(() => {
+        if (!groupId || !currentUserId) {
+            console.log('Cannot connect: missing groupId or currentUserId');
+            return;
+        }
+
+        // Close existing connection
+        if (websocketRef.current) {
+            websocketRef.current.close();
+        }
+
         try {
             const wsUrl = `${apiBaseUrl}/chat/ws/${groupId}`;
+            console.log('Connecting to WebSocket:', wsUrl); // Debug log
+            
             websocketRef.current = new WebSocket(wsUrl);
 
             websocketRef.current.onopen = () => {
+                console.log('WebSocket connected'); // Debug log
                 setIsConnected(true);
                 setConnectionError(null);
+                reconnectAttempts.current = 0;
                 fetchOnlineMembers();
+                
+                // Send user identification if your server expects it
+                const identificationMessage = {
+                    type: 'identify',
+                    user: currentUserId,
+                    username: currentUser
+                };
+                websocketRef.current.send(JSON.stringify(identificationMessage));
             };
 
             websocketRef.current.onmessage = (event) => {
                 try {
+                    console.log('Received message:', event.data); // Debug log
                     const data = JSON.parse(event.data);
-                    const isSelf = data.user === currentUserId;
-                    if (!isSelf) {
-                        const msg = {
-                            id: Date.now(),
-                            userId: data.user,
-                            username: data.username,
-                            message: data.message,
-                            timestamp: new Date(),
-                            isCurrentUser: false,
-                        };
-                        setMessages((prev) => [...prev, msg]);
+                    
+                    // Handle different message types
+                    if (data.type === 'message') {
+                        const isSelf = data.user === currentUserId;
+                        if (!isSelf) {
+                            const msg = {
+                                id: data.id || Date.now(),
+                                userId: data.user,
+                                username: data.username,
+                                message: data.message,
+                                timestamp: data.timestamp, // ISO format from backend
+                                isCurrentUser: false,
+                            };
+                            setMessages((prev) => [...prev, msg]);
+                        }
+                    } else if (data.type === 'online_count') {
+                        console.log('Updating online count:', data.count); // Debug log
+                        setOnlineCount(data.count);
+                    } else {
+                        // Handle legacy format or unknown types
+                        console.log('Unknown message type or legacy format:', data);
                     }
                 } catch (err) {
-                    console.error('Failed to parse message:', err);
+                    console.error('Failed to parse message:', err, 'Raw data:', event.data);
                 }
             };
 
             websocketRef.current.onclose = (e) => {
+                console.log('WebSocket closed:', e.code, e.reason); // Debug log
                 setIsConnected(false);
-                if (e.code !== 1000) {
-                    reconnectTimeoutRef.current = setTimeout(connectWebSocket, 2000);
+                
+                // Only attempt reconnection if it wasn't a clean close and we haven't exceeded max attempts
+                if (e.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000); // Exponential backoff
+                    console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
+                    
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        reconnectAttempts.current++;
+                        connectWebSocket();
+                    }, delay);
+                } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+                    setConnectionError('Connection failed after multiple attempts. Please refresh the page.');
                 }
             };
 
-            websocketRef.current.onerror = () => {
-                setConnectionError('WebSocket connection error.');
+            websocketRef.current.onerror = (error) => {
+                console.error('WebSocket error:', error); // Debug log
+                setConnectionError('WebSocket connection error. Check server status.');
             };
-        } catch {
-            setConnectionError('Failed to connect to server.');
+        } catch (err) {
+            console.error('Failed to create WebSocket:', err);
+            setConnectionError('Failed to connect to server: ' + err.message);
         }
-    };
+    }, [apiBaseUrl, groupId, currentUserId, currentUser, fetchOnlineMembers]);
 
     // Init
     useEffect(() => {
-        if (currentUser && currentUserId) {
+        if (currentUser && currentUserId && groupId) {
+            console.log('Initializing chat for:', { currentUser, currentUserId, groupId }); // Debug log
             fetchMessageHistory();
             connectWebSocket();
         }
 
         return () => {
-            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-            if (websocketRef.current) websocketRef.current.close(1000, 'Unmount');
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+            if (websocketRef.current) {
+                websocketRef.current.close(1000, 'Component unmounting');
+            }
         };
-    }, [groupId, currentUser, currentUserId]);
+    }, [groupId, currentUser, currentUserId, fetchMessageHistory, connectWebSocket]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // Format timestamp
+    // Format timestamp - matches backend ISO format
     const formatTimestamp = (timestamp) => {
-        const now = new Date();
-        const messageDate = new Date(timestamp);
-        const isToday = now.toDateString() === messageDate.toDateString();
-        
-        if (isToday) {
-            return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else {
-            return messageDate.toLocaleDateString([], { 
-                month: 'short', 
-                day: 'numeric',
-                hour: '2-digit', 
-                minute: '2-digit' 
-            });
+        try {
+            const now = new Date();
+            const messageDate = new Date(timestamp);
+            
+            // Check if the date is valid
+            if (isNaN(messageDate.getTime())) {
+                return 'Invalid date';
+            }
+            
+            const isToday = now.toDateString() === messageDate.toDateString();
+            const isYesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString() === messageDate.toDateString();
+            
+            if (isToday) {
+                return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else if (isYesterday) {
+                return 'Yesterday ' + messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+                return messageDate.toLocaleDateString([], { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            }
+        } catch (error) {
+            console.error('Error formatting timestamp:', error, 'Timestamp:', timestamp);
+            return 'Invalid date';
         }
     };
 
     const handleSendMessage = () => {
-        if (!newMessage.trim() || !websocketRef.current || !isConnected) return;
-        const data = {
+        if (!newMessage.trim() || !websocketRef.current || !isConnected) {
+            console.log('Cannot send message:', { 
+                hasMessage: !!newMessage.trim(), 
+                hasWebSocket: !!websocketRef.current, 
+                isConnected 
+            });
+            return;
+        }
+
+        const messageData = {
+            type: 'message', // Add message type
             user: currentUserId,
             username: currentUser,
             message: newMessage.trim(),
+            timestamp: new Date().toISOString()
         };
 
         const msg = {
@@ -174,13 +268,19 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
             userId: currentUserId,
             username: currentUser,
             message: newMessage.trim(),
-            timestamp: new Date(),
+            timestamp: new Date().toISOString(),
             isCurrentUser: true,
         };
 
-        websocketRef.current.send(JSON.stringify(data));
-        setMessages((prev) => [...prev, msg]);
-        setNewMessage('');
+        try {
+            console.log('Sending message:', messageData); // Debug log
+            websocketRef.current.send(JSON.stringify(messageData));
+            setMessages((prev) => [...prev, msg]);
+            setNewMessage('');
+        } catch (err) {
+            console.error('Failed to send message:', err);
+            setConnectionError('Failed to send message. Please try again.');
+        }
     };
 
     const handleKeyPress = (e) => {
@@ -211,14 +311,35 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
     // Retry connection
     const retryConnection = () => {
         setConnectionError(null);
+        reconnectAttempts.current = 0;
         connectWebSocket();
     };
 
-    if (isLoading || !currentUserId) {
+    if (isLoading) {
         return (
             <div className="flex flex-col h-full bg-orange-50 items-center justify-center">
                 <div className="text-orange-600">
-                    {!currentUserId ? 'Loading user data...' : 'Loading chat history...'}
+                    Loading chat...
+                </div>
+            </div>
+        );
+    }
+
+    if (!currentUserId) {
+        return (
+            <div className="flex flex-col h-full bg-orange-50 items-center justify-center">
+                <div className="text-red-600">
+                    User data not found. Please check localStorage for 'username' and 'userId'.
+                </div>
+            </div>
+        );
+    }
+
+    if (!groupId) {
+        return (
+            <div className="flex flex-col h-full bg-orange-50 items-center justify-center">
+                <div className="text-red-600">
+                    Invalid group ID in URL path.
                 </div>
             </div>
         );
@@ -255,7 +376,9 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
                             <>
                                 <WifiOff className="w-4 h-4 text-red-500" />
                                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                <span className="text-sm text-red-600 font-medium">Disconnected</span>
+                                <span className="text-sm text-red-600 font-medium">
+                                    {reconnectAttempts.current > 0 ? `Reconnecting (${reconnectAttempts.current}/${maxReconnectAttempts})` : 'Disconnected'}
+                                </span>
                             </>
                         )}
                     </div>
@@ -373,9 +496,9 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
                                 onKeyPress={handleKeyPress}
                                 placeholder={isConnected ? "Type a message..." : "Connecting..."}
                                 rows={1}
-                                disabled={!isConnected || !currentUserId}
+                                disabled={!isConnected}
                                 className={`w-full px-4 py-3 border rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none text-orange-900 placeholder-orange-400 ${
-                                    isConnected && currentUserId
+                                    isConnected
                                         ? 'bg-white border-orange-300' 
                                         : 'bg-gray-100 border-gray-300 cursor-not-allowed'
                                 }`}
@@ -393,9 +516,9 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
                     
                     <button
                         onClick={handleSendMessage}
-                        disabled={!newMessage.trim() || !isConnected || !currentUserId}
+                        disabled={!newMessage.trim() || !isConnected}
                         className={`p-3 rounded-full transition-all ${
-                            newMessage.trim() && isConnected && currentUserId
+                            newMessage.trim() && isConnected
                                 ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg'
                                 : 'bg-orange-200 text-orange-400 cursor-not-allowed'
                         }`}
@@ -406,14 +529,9 @@ const ChatPage = ({ apiBaseUrl = "ws://localhost:8000" }) => {
                 
                 {/* Status indicator */}
                 <div className="mt-2 h-4">
-                    {!isConnected && currentUserId && (
+                    {!isConnected && (
                         <div className="text-xs text-orange-600">
-                            Reconnecting...
-                        </div>
-                    )}
-                    {!currentUserId && (
-                        <div className="text-xs text-red-600">
-                            Username not found in localStorage
+                            {reconnectAttempts.current > 0 ? 'Reconnecting...' : 'Connecting...'}
                         </div>
                     )}
                 </div>
