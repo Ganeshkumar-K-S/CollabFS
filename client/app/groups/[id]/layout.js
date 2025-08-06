@@ -99,8 +99,7 @@ const GroupLayout = ({ children }) => {
   const sidebarItems = [
     { name: 'Files', icon: Files, path: 'files' },
     { name: 'Users', icon: Users, path: 'users' },
-    { name: 'Chat', icon: MessageCircle, path: 'chat' },
-    { name: 'Activity', icon: Activity, path: 'activity' }
+    { name: 'Chat', icon: MessageCircle, path: 'chat' }
   ];
 
   const getCurrentActiveItem = () => {
