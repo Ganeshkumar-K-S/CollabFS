@@ -58,13 +58,13 @@ async def verify_role(
         group_id : str,
         roles : set,
 ):
-    member_data = await db.groupmembers.find_one( 
+    member_data = await db.groupMembers.find_one( 
         {
             "userId":user_id,
             "groupId":group_id }
     )
 
-    if member_data.get("role") not in roles:
+    if member_data is None or member_data.get("role") not in roles:
         raise HTTPException(
             status_code=403,
             detail="unauthorized access to action"
