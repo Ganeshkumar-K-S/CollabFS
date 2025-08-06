@@ -15,10 +15,12 @@ from app.utils.auth_util import verify_role
 file_engine = APIRouter(prefix="/file")
 
 def verify_file_api(request : Request):
-    expected_key=os.getenv('GROUP_API_KEY')
+    expected_key=os.getenv('FILE_API_KEY')
     key_name="x-api-key"
     response_key=request.headers.get(key_name)
+    print(f"Expected API key: {expected_key} | Received API key: {response_key} Matching : {expected_key == response_key}")
     if expected_key!=response_key:
+        print("HERE")
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN,
             detail="Unauthorized access"
@@ -34,6 +36,7 @@ async def upload_file(
     fs = Depends(get_fs)
 ):
     # Role check first
+    print(f"User ID: {userId}, Group ID: {groupId}, Content Type: {contentType}")
     await verify_role(user_id=userId, group_id=groupId, roles={"owner", "admin", "editor"})
 
     async with await db.client.start_session() as session:

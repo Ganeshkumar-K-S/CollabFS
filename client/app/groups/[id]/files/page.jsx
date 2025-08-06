@@ -228,7 +228,7 @@ const FilePage = () => {
         const response = await fetch(`${backendUrl}/file/upload`, {
           method: 'POST',
           headers: {
-            'x-api-key': process.env.NEXT_PUBLIC_GROUP_API_KEY || '',
+            'x-api-key': process.env.NEXT_PUBLIC_FILE_API_KEY || '',
           },
           body: formData
         });
@@ -245,7 +245,7 @@ const FilePage = () => {
       // Refresh files list after successful upload
       const refreshResponse = await fetch(`${backendUrl}/file/${groupId}`, {
         headers: {
-          'x-api-key': process.env.NEXT_PUBLIC_GROUP_API_KEY || '',
+          'x-api-key': process.env.NEXT_PUBLIC_FILE_API_KEY || '',
           'Content-Type': 'application/json',
         }
       });
@@ -317,6 +317,7 @@ const FilePage = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_FILE_API_KEY || '',
         },
         body: JSON.stringify({
           fileId: fileId,
@@ -362,7 +363,7 @@ const FilePage = () => {
       const response = await fetch(`${backendUrl}/file/delete`, {
         method: 'DELETE',
         headers: {
-          'x-api-key': process.env.NEXT_PUBLIC_GROUP_API_KEY || '',
+          'x-api-key': process.env.NEXT_PUBLIC_FILE_API_KEY || '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
