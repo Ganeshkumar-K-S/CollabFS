@@ -280,7 +280,8 @@ const GroupLayout = ({ children }) => {
         },
         body: JSON.stringify({
           groupId,
-          userId
+          userId,
+          role: groupData.userRole.toLowerCase()
         })
       });
 
