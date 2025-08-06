@@ -18,6 +18,7 @@ file_engine = APIRouter(prefix="/user")
 def verify_userservices_api(request: Request):
     expected_key = os.getenv('USERSERVICES_API_KEY')
     key_name = "x-api-key"
+    print(f"Expected API key: {expected_key} | Received API key: {request.headers.get(key_name)}")
     response_key = request.headers.get(key_name)
     if expected_key != response_key:
         raise HTTPException(
@@ -234,34 +235,68 @@ async def exit_group(request:exitGroupModel,
     except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
 
-@file_engine.post("/removeuser",dependencies=[Depends(verify_userservices_api)])
-async def remove_user(request:removeUserModel,
-                      db:AsyncIOMotorDatabase=Depends(get_db)
+@file_engine.post("/removeuser", dependencies=[Depends(verify_userservices_api)])
+async def remove_user_from_group(
+    request: exitGroupModel,
+    db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-    adminId=request.adminId
-    userId=request.userId
-    groupId=request.groupId
-    userRole=request.userRole
-    adminRole=request.adminRole
+    groupId = request.groupId
+    userId = request.userId
+    role = request.role
+    
     try:
-        if adminRole=="owner":
-              async with await db.client.start_session() as session:
-                   async with session.start_transaction():
-                        await db.groupMembers.delete_one({"groupId": groupId,"userId":userId}, session=session)
-                        return {"message":"user removed successfully"}
+        # Check if user exists in the group
+        existing_member = await db.groupMembers.find_one({
+            "groupId": groupId,
+            "userId": userId
+        })
         
-        elif adminRole=="admin" and userRole!="owner":
-             async with await db.client.start_session() as session:
-                   async with session.start_transaction():
-                        await db.groupMembers.delete_one({"groupId": groupId,"userId":userId}, session=session)
-                        return {"message":"user removed successfully"}
+        if not existing_member:
+            raise HTTPException(
+                status_code=404, 
+                detail="User not found in this group"
+            )
         
-        else:
-             return {"message":"cannot remove user"}             
-
-
+        # Prevent owner from being removed
+        if existing_member.get("role", "").lower() == "owner":
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot remove group owner"
+            )
+        
+        # Remove user from group
+        async with await db.client.start_session() as session:
+            async with session.start_transaction():
+                result = await db.groupMembers.delete_one(
+                    {
+                        "groupId": groupId,
+                        "userId": userId
+                    },
+                    session=session
+                )
+                
+                if result.deleted_count == 0:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found in group"
+                    )
+                
+                # Log the activity
+                await db.activities.insert_one({
+                    "userId": userId,
+                    "groupId": groupId,
+                    "activityType": "Removed from group",
+                    "fileId": None,
+                    "timestamp": datetime.now(timezone.utc)
+                }, session=session)
+        
+        return {"message": "User removed from group successfully"}
+    
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Error removing user: {e}")
         raise HTTPException(
-             status_code=403,
-             detail=str(e)
+            status_code=500, 
+            detail=f"Failed to remove user: {str(e)}"
         )

@@ -83,71 +83,45 @@ async def create_group(
     finally:
         await session.end_session()
 
-@group_engine.patch("/rename",dependencies=[Depends(verify_group_api)])
-async def rename_group(
-        rename_data : GroupModifyModel,
-        db : AsyncIOMotorDatabase = Depends(get_db)
+@group_engine.patch("/rename", dependencies=[Depends(verify_group_api)])
+async def rename_group_or_description(
+    rename_data: GroupModifyModel,
+    db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-        async with await db.client.start_session() as session:
-             async with session.start_transaction():
-                try:
-                    await db.group.update_one(
-                        {
-                            "_id":rename_data.groupId
-                        },
-                        {
-                            "$set" :{
-                                "gname":rename_data.newContent
-                            }
-                        }
+    async with await db.client.start_session() as session:
+        async with session.start_transaction():
+            try:
+                # Update field dynamically
+                await db.group.update_one(
+                    {"_id": rename_data.groupId},
+                    {"$set": {rename_data.fieldToUpdate: rename_data.newContent}}
+                )
+
+                # Choose activity type
+                activity_type = (
+                    "GROUP_RENAMED" if rename_data.fieldToUpdate == "gname" 
+                    else "GROUP_DESCRIPTION_CHANGE"
+                )
+
+                activity_data = {
+                    "userId": rename_data.userId,
+                    "groupId": rename_data.groupId,
+                    "activityType": activity_type,
+                    "fileId": None,
+                    "timestamp": datetime.now(timezone.utc)
+                }
+
+                await db.activities.insert_one(activity_data)
+
+                return {
+                    "message": (
+                        "Group name changed successfully" 
+                        if rename_data.fieldToUpdate == "gname" 
+                        else "Group description changed successfully"
                     )
-
-                    activity_data={
-                        "userId" : rename_data.userId,
-                        "groupId" : rename_data.groupId,
-                        "activityType" : "GROUP_RENAMED",
-                        "fileId" : None,
-                        "timestamp":datetime.now(timezone.utc)
-                    }
-
-                    await db.activities.insert_one(activity_data)
-
-                    return {"message":"group name changed successfully"}
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=str(e))
-
-@group_engine.patch("/description",dependencies=[Depends(verify_group_api)])
-async def description_change(
-        rename_data : GroupModifyModel,
-        db : AsyncIOMotorDatabase = Depends(get_db)
-):
-        async with await db.client.start_session() as session:
-             async with session.start_transaction():
-                try:
-                    await db.group.update_one(
-                        {
-                            "_id":rename_data.groupId
-                        },
-                        {
-                            "$set" :{
-                                "description":rename_data.newContent
-                            }
-                        }
-                    )
-
-                    activity_data={
-                        "userId" : rename_data.userId,
-                        "groupId" : rename_data.groupId,
-                        "activityType" : "GROUP_DESCRIPTION_CHANGE",
-                        "fileId" : None,
-                        "timestamp":datetime.now(timezone.utc)
-                    }
-
-                    await db.activities.insert_one(activity_data)
-
-                    return {"message":"group description changed successfully"}
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=str(e))
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
 
 

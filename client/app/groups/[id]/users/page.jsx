@@ -254,8 +254,30 @@ const UsersPage = () => {
     }
   };
 
-  // Remove user from group using the backend API
+  // Updated removeUser function for the React component
   const removeUser = async (userId) => {
+    // Confirmation dialog before deletion
+    const userToDelete = users.find(user => user.userId === userId);
+    if (!userToDelete) {
+      console.error('User not found');
+      return;
+    }
+
+    // Prevent owner from being removed
+    if (userToDelete.role.toLowerCase() === 'owner') {
+      alert('Cannot remove the group owner');
+      return;
+    }
+
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      `Are you sure you want to remove ${userToDelete.userName} from this group?`
+    );
+    
+    if (!confirmDelete) {
+      return;
+    }
+
     try {
       const backendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL || 'http://localhost:8000';
       
@@ -269,17 +291,27 @@ const UsersPage = () => {
         body: JSON.stringify({
           groupId: groupId,
           userId: userId,
-          role: users.find(user => user.userId === userId)?.role || 'member'
+          role: userToDelete.role.toLowerCase() // Ensure role is lowercase as expected by backend
         })
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('User removed successfully:', result.message);
+        
+        // Remove user from local state
         setUsers(users.filter(user => user.userId !== userId));
+        
+        // Show success message (you can replace this with a toast notification)
+        alert(`${userToDelete.userName} has been removed from the group successfully`);
       } else {
-        console.error('Failed to remove user from group');
+        const errorData = await response.json();
+        console.error('Failed to remove user from group:', errorData);
+        alert(`Failed to remove user: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error removing user:', error);
+      alert('An error occurred while removing the user. Please try again.');
     }
   };
 

@@ -38,6 +38,8 @@ const GroupLayout = ({ children }) => {
     name: "",
     description: ""
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const groupId = params.id;
 
@@ -117,97 +119,204 @@ const GroupLayout = ({ children }) => {
 
   const openDialog = (type) => {
     setShowDropdown(false);
+    setError(""); // Clear any previous errors
     setDialogState(prev => ({ ...prev, [type]: true }));
   };
 
   const closeDialog = (type) => {
     setDialogState(prev => ({ ...prev, [type]: false }));
+    setError("");
+    setIsSubmitting(false);
   };
 
   const handleRenameSubmit = async () => {
+    if (!renameForm.name.trim()) {
+      setError("Group name cannot be empty");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
     try {
       const userId = localStorage.getItem('userId');
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
       const apiKey = process.env.NEXT_PUBLIC_GROUP_API_KEY;
 
-      const response = await fetch(`${backendUrl}/group/rename/${groupId}`, {
-        method: 'PUT',
+      const updates = [];
+
+      // Check if name changed
+      if (renameForm.name.trim() !== groupData.name) {
+        updates.push({
+          fieldToUpdate: "gname",
+          newContent: renameForm.name.trim()
+        });
+      }
+
+      // Check if description changed
+      if (renameForm.description.trim() !== groupData.description) {
+        updates.push({
+          fieldToUpdate: "description",
+          newContent: renameForm.description.trim()
+        });
+      }
+
+      // If no changes, just close the dialog
+      if (updates.length === 0) {
+        closeDialog('rename');
+        return;
+      }
+
+      // Make API calls for each update
+      for (const update of updates) {
+        const response = await fetch(`${backendUrl}/group/rename`, {
+          method: 'PATCH',
+          headers: {
+            'x-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            groupId,
+            ...update
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.detail || `Failed to update ${update.fieldToUpdate}`);
+        }
+      }
+
+      // Update local state
+      setGroupData(prev => ({
+        ...prev,
+        name: renameForm.name.trim(),
+        description: renameForm.description.trim()
+      }));
+
+      closeDialog('rename');
+    } catch (error) {
+      console.error('Error renaming group:', error);
+      setError(error.message || 'Failed to update group. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleExitGroup = async () => {
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const userId = localStorage.getItem('userId');
+      // FIXED: Use correct environment variable name
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const apiKey = process.env.NEXT_PUBLIC_USERSERVICES_API_KEY;
+
+      console.log('Making exit request to:', `${backendUrl}/user/exitgroup`);
+      console.log('API Key:', apiKey ? 'Present' : 'Missing');
+      console.log('Request body:', { groupId, userId, role: groupData.userRole.toLowerCase() });
+
+      const response = await fetch(`${backendUrl}/user/exitgroup`, {
+        method: 'POST',
         headers: {
           'x-api-key': apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          groupName: renameForm.name,
-          description: renameForm.description
+          groupId,
+          userId,
+          role: groupData.userRole.toLowerCase()
         })
       });
 
-      if (response.ok) {
-        setGroupData(prev => ({
-          ...prev,
-          name: renameForm.name,
-          description: renameForm.description
-        }));
-        closeDialog('rename');
-      } else {
-        throw new Error('Failed to rename group');
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.log('Error response:', errorData);
+        throw new Error(errorData?.detail || `HTTP ${response.status}: Failed to exit group`);
       }
-    } catch (error) {
-      console.error('Error renaming group:', error);
-    }
-  };
 
-  const handleExitGroup = async () => {
-    try {
-      const userId = localStorage.getItem('userId');
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const apiKey = process.env.NEXT_PUBLIC_GROUP_API_KEY;
+      const result = await response.json();
+      console.log('Exit group result:', result);
 
-      const response = await fetch(`${backendUrl}/group/exit/${userId}/${groupId}`, {
-        method: 'DELETE',
-        headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (response.ok) {
-        closeDialog('exit');
-        router.push('/home');
-      } else {
-        throw new Error('Failed to exit group');
-      }
+      closeDialog('exit');
+      router.push('/home');
     } catch (error) {
       console.error('Error exiting group:', error);
+      setError(error.message || 'Failed to exit group. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDeleteGroup = async () => {
+    // Only owners can delete groups
+    if (groupData.userRole.toLowerCase() !== 'owner') {
+      setError("Only group owners can delete groups");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
     try {
       const userId = localStorage.getItem('userId');
+      // FIXED: Use correct environment variable name
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const apiKey = process.env.NEXT_PUBLIC_GROUP_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_USERSERVICES_API_KEY;
 
-      const response = await fetch(`${backendUrl}/group/delete/${groupId}`, {
-        method: 'DELETE',
+      console.log('Making delete request to:', `${backendUrl}/user/deletegroup`);
+      console.log('API Key:', apiKey ? 'Present' : 'Missing');
+      console.log('Request body:', { groupId, userId });
+
+      const response = await fetch(`${backendUrl}/user/deletegroup`, {
+        method: 'POST',
         headers: {
           'x-api-key': apiKey,
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+          groupId,
+          userId
+        })
       });
 
-      if (response.ok) {
-        closeDialog('delete');
-        router.push('/home');
-      } else {
-        throw new Error('Failed to delete group');
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.log('Error response:', errorData);
+        throw new Error(errorData?.detail || `HTTP ${response.status}: Failed to delete group`);
       }
+
+      const result = await response.json();
+      console.log('Delete group result:', result);
+
+      closeDialog('delete');
+      router.push('/home');
     } catch (error) {
       console.error('Error deleting group:', error);
+      setError(error.message || 'Failed to delete group. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDropdownAction = (action) => {
+    // Check permissions for certain actions
+    if (action === 'delete' && groupData.userRole.toLowerCase() !== 'owner') {
+      setError("Only group owners can delete groups");
+      return;
+    }
+    
+    if (action === 'rename' && !['owner', 'admin'].includes(groupData.userRole.toLowerCase())) {
+      setError("Only owners and admins can rename groups");
+      return;
+    }
+
     openDialog(action);
   };
 
@@ -256,7 +365,7 @@ const GroupLayout = ({ children }) => {
                 iconColor: 'text-gray-700'
             };
     }
-};
+  };
 
   const roleDisplay = getRoleDisplay(groupData.userRole);
   const RoleIcon = roleDisplay.icon;
@@ -324,6 +433,7 @@ const GroupLayout = ({ children }) => {
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
                   className="p-3 hover:bg-orange-100 rounded-xl transition-all duration-200 transform hover:scale-105"
+                  disabled={groupData.loading}
                 >
                   <MoreVertical className="w-5 h-5 text-orange-700" />
                 </button>
@@ -331,13 +441,17 @@ const GroupLayout = ({ children }) => {
                 {/* Dropdown menu */}
                 {showDropdown && (
                   <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-orange-200 py-2 z-50 backdrop-blur-sm">
-                    <button
-                      onClick={() => handleDropdownAction('rename')}
-                      className="flex items-center space-x-3 px-4 py-3 text-sm text-orange-800 hover:bg-orange-50 w-full text-left transition-colors"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                      <span>Rename Group</span>
-                    </button>
+                    {/* Only show rename option for owners and admins */}
+                    {['owner', 'admin'].includes(groupData.userRole.toLowerCase()) && (
+                      <button
+                        onClick={() => handleDropdownAction('rename')}
+                        className="flex items-center space-x-3 px-4 py-3 text-sm text-orange-800 hover:bg-orange-50 w-full text-left transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        <span>Rename Group</span>
+                      </button>
+                    )}
+                    
                     <button
                       onClick={() => handleDropdownAction('exit')}
                       className="flex items-center space-x-3 px-4 py-3 text-sm text-orange-800 hover:bg-orange-50 w-full text-left transition-colors"
@@ -345,14 +459,20 @@ const GroupLayout = ({ children }) => {
                       <LogOut className="w-4 h-4" />
                       <span>Exit Group</span>
                     </button>
-                    <div className="border-t border-orange-100 my-1"></div>
-                    <button
-                      onClick={() => handleDropdownAction('delete')}
-                      className="flex items-center space-x-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full text-left transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Delete Group</span>
-                    </button>
+                    
+                    {/* Only show delete option for owners */}
+                    {groupData.userRole.toLowerCase() === 'owner' && (
+                      <>
+                        <div className="border-t border-orange-100 my-1"></div>
+                        <button
+                          onClick={() => handleDropdownAction('delete')}
+                          className="flex items-center space-x-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full text-left transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Group</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -407,10 +527,17 @@ const GroupLayout = ({ children }) => {
               Update the group name and description. Changes will be visible to all members.
             </DialogDescription>
           </DialogHeader>
+          
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 my-2">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="group-name" className="text-right">
-                Name
+                Name *
               </Label>
               <Input
                 id="group-name"
@@ -418,6 +545,7 @@ const GroupLayout = ({ children }) => {
                 onChange={(e) => setRenameForm(prev => ({ ...prev, name: e.target.value }))}
                 className="col-span-3"
                 placeholder="Enter group name"
+                disabled={isSubmitting}
               />
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
@@ -431,18 +559,23 @@ const GroupLayout = ({ children }) => {
                 className="col-span-3"
                 placeholder="Enter group description (optional)"
                 rows={3}
+                disabled={isSubmitting}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => closeDialog('rename')}>
+            <Button 
+              variant="outline" 
+              onClick={() => closeDialog('rename')}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button 
               onClick={handleRenameSubmit}
-              disabled={!renameForm.name.trim()}
+              disabled={!renameForm.name.trim() || isSubmitting}
             >
-              Save Changes
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -455,8 +588,20 @@ const GroupLayout = ({ children }) => {
             <DialogTitle>Exit Group</DialogTitle>
             <DialogDescription>
               Are you sure you want to leave "{groupData.name}"? You will no longer have access to this group's files, chats, and activities.
+              {groupData.userRole.toLowerCase() === 'owner' && (
+                <span className="block mt-2 text-amber-600 font-medium">
+                  As the owner, leaving will delete the entire group and all its data.
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
+          
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 my-2">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           {groupData.description && (
             <div className="py-2">
               <p className="text-sm text-gray-600">
@@ -464,12 +609,21 @@ const GroupLayout = ({ children }) => {
               </p>
             </div>
           )}
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => closeDialog('exit')}>
+            <Button 
+              variant="outline" 
+              onClick={() => closeDialog('exit')}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleExitGroup}>
-              Exit Group
+            <Button 
+              variant="destructive" 
+              onClick={handleExitGroup}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Leaving...' : 'Exit Group'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -484,6 +638,13 @@ const GroupLayout = ({ children }) => {
               This action cannot be undone. This will permanently delete "{groupData.name}" and remove all members, files, chats, and activities.
             </DialogDescription>
           </DialogHeader>
+          
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 my-2">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           {groupData.description && (
             <div className="py-2">
               <p className="text-sm text-gray-600">
@@ -491,6 +652,7 @@ const GroupLayout = ({ children }) => {
               </p>
             </div>
           )}
+          
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 my-2">
             <p className="text-sm text-red-800">
               <strong>Warning:</strong> All group data will be permanently lost. This includes:
@@ -502,12 +664,21 @@ const GroupLayout = ({ children }) => {
               <li>Member information</li>
             </ul>
           </div>
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => closeDialog('delete')}>
+            <Button 
+              variant="outline" 
+              onClick={() => closeDialog('delete')}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteGroup}>
-              Delete Group Permanently
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteGroup}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Deleting...' : 'Delete Group Permanently'}
             </Button>
           </DialogFooter>
         </DialogContent>
