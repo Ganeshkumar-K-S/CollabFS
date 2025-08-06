@@ -410,17 +410,6 @@ const FilePage = () => {
               <p className="text-sm text-orange-600">Manage files in this group</p>
             </div>
           </div>
-
-          {/* Right Section: Search Bar */}
-          <div className="relative max-w-md w-full sm:w-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-orange-400 w-4 h-4" />
-            <Input
-              placeholder="Search files..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 border-orange-200 focus:ring-orange-500 focus:border-orange-500"
-            />
-          </div>
         </div>
       </div>
 

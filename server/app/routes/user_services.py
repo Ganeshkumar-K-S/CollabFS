@@ -164,8 +164,7 @@ async def delete_group(request:exitGroupModel,
         await verify_role(
                     user_id=userId,
                     group_id=groupId,
-                    roles={"Owner"},
-                    db=db
+                    roles={"owner"}
                     )
         
         async with await db.client.start_session() as session:
@@ -188,7 +187,8 @@ async def delete_group(request:exitGroupModel,
     
 
     except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
+        print(f"Error deleting group: {e}")
+        raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
                     
 @file_engine.post("/exitgroup",dependencies=[Depends(verify_userservices_api)])
 async def exit_group(request:exitGroupModel,
