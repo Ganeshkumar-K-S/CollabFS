@@ -8,6 +8,7 @@ from app.routes.file_services import file_engine
 from app.routes.chat_services import chat_engine
 from app.routes.auth import file_engine as auth_engine
 from app.routes.group_services import group_engine
+from app.routes.user_services import file_engine as user_services_engine
 import secrets
 
 app = FastAPI()
@@ -47,3 +48,4 @@ app.include_router(file_engine)
 app.include_router(chat_engine)
 app.include_router(auth_engine)
 app.include_router(group_engine)
+app.include_router(user_services_engine)

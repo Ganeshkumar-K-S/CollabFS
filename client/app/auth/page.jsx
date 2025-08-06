@@ -15,7 +15,8 @@ export default function Page() {
         const token = searchParams.get('token');
         const email = searchParams.get('email');
         const username = searchParams.get('username');
-
+        console.log('Search params:', searchParams.toString());
+        console.log('Token:', token, 'Email:', email, 'Username:', username);
         if (token) {
             try {
                 // Decode token and store in localStorage
@@ -25,7 +26,7 @@ export default function Page() {
                 setUserData({
                     userEmail: email,
                     username: username,
-                    jwtToken: decoded,
+                    jwtToken: token,
                     id: decoded.id
                 });
 

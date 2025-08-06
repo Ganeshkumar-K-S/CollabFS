@@ -1,63 +1,33 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { getUserData, clearUserData, isUserLoggedIn } from '../utils/localStorage'
+
+import { useAuth } from '@/hooks/useAuthGuard'
 
 export default function Page() {
-    const router = useRouter()
-    const [isLoading, setIsLoading] = useState(true)
+    const { isLoading, isAuthenticated } = useAuth()
 
-    const validateAndRedirect = () => {
-        try {
-            if (isUserLoggedIn()) {
-                // User is logged in with valid token, redirect to home
-                console.log('Valid token found, redirecting to home')
-                router.push('/home')
-            } else {
-                // Token is invalid, expired, or missing - redirect to auth
-                console.log('Invalid or expired token, redirecting to auth')
-                router.push('/auth')
-            }
-        } catch (error) {
-            console.error('Error during token validation:', error)
-            // On error, clear data and redirect to auth
-            clearUserData()
-            router.push('/auth')
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    // Initial token check on component mount
-    useEffect(() => {
-        validateAndRedirect()
-    }, [router])
-
-    // Periodic token expiry check (every 5 minutes)
-    useEffect(() => {
-        const checkTokenExpiry = () => {
-            if (!isUserLoggedIn()) {
-                console.log('Token expired during session, logging out')
-                router.push('/auth')
-            }
-        }
-
-        // Check token expiry every 5 minutes (300000ms)
-        const interval = setInterval(checkTokenExpiry, 300000)
-
-        // Cleanup interval on component unmount
-        return () => clearInterval(interval)
-    }, [router])
-
-    // Show loading while checking localStorage
+    // Show loading state while auth is being determined
     if (isLoading) {
         return (
-            <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
-                <div className="w-12 h-12 border-4 border-gray-300 border-t-black rounded-full animate-spin mb-5"></div>
-                <p className="text-slate-600 text-base">Loading your account...</p>
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading CollabFS...</h2>
+                    <p className="text-gray-600">Checking your session...</p>
+                </div>
             </div>
         )
     }
 
-    return null
+    // Show redirecting state - the useAuthGuard hook will handle the actual redirect
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Redirecting...</h2>
+                <p className="text-gray-600">
+                    {isAuthenticated ? 'Taking you to your dashboard...' : 'Taking you to login...'}
+                </p>
+            </div>
+        </div>
+    )
 }

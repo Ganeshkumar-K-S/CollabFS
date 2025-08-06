@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {Folder, Clock, Users, StarIcon, Crown, User, Eye} from 'lucide-react';
+import {Folder, Clock, StarIcon, Crown, User, Eye, Shield, Pencil} from 'lucide-react';
 import CustomTooltip from '@/components/CustomTooltip';
 import { getData } from '@/utils/localStorage';
 
@@ -23,13 +23,13 @@ const GroupsTable = ({
   const getRoleIcon = (role) => {
     switch (role.toLowerCase()) {
       case 'owner':
-        return <Crown className="h-3 w-3 text-orange-500" />;
+        return <Crown className="h-3 w-3 text-yellow-500" />;
       case 'admin':
-        return <Users className="h-3 w-3 text-blue-500" />;
+        return <Shield className="h-3 w-3 text-purple-500" />;
       case 'editor':
-        return <User className="h-3 w-3 text-green-500" />;
+        return <Pencil className="h-3 w-3 text-green-500" />;
       case 'member':
-        return <User className="h-3 w-3 text-green-500" />;
+        return <User className="h-3 w-3 text-gray-500" />;
       case 'viewer':
         return <Eye className="h-3 w-3 text-gray-500" />;
       default:
@@ -40,13 +40,13 @@ const GroupsTable = ({
   const getRoleColor = (role) => {
     switch (role.toLowerCase()) {
       case 'owner':
-        return 'text-orange-600 bg-orange-50';
+        return 'text-yellow-600 bg-yellow-50';
       case 'admin':
-        return 'text-blue-600 bg-blue-50';
+        return 'text-purple-600 bg-purple-50';
       case 'editor':
         return 'text-green-600 bg-green-50';
       case 'member':
-        return 'text-green-600 bg-green-50';
+        return 'text-gray-600 bg-gray-50';
       case 'viewer':
         return 'text-gray-600 bg-gray-50';
       default:

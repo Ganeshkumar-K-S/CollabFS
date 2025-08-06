@@ -12,5 +12,5 @@ fastapi_mail
 python-multipart
 httpx
 itsdangerous
-'uvicorn[standard]'
+uvicorn[standard]
 bson

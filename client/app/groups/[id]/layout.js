@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname, useParams } from 'next/navigation';
-import { MoreVertical, Trash2, LogOut, Edit3, Files, Users, MessageCircle, Activity, ArrowLeft, Crown, Shield, User, Pencil } from 'lucide-react';
+import { MoreVertical, Trash2, LogOut, Edit3, Files, Eye, Users, MessageCircle, Activity, ArrowLeft, Crown, Shield, User, Pencil } from 'lucide-react';
 import ProfilePicture from '@/components/ProfilePicture';
 import {
   Dialog,

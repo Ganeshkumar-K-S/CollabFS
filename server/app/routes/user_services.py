@@ -5,7 +5,7 @@ import os
 from app.db.connection import db
 import warnings
 from bson import Int64
-from fastapi import APIRouter,Request,HTTPException,Depends
+from fastapi import APIRouter,Request,HTTPException,Depends, Query
 from app.models.group_members_model import addUserModel,exitGroupModel
 from starlette.status import HTTP_403_FORBIDDEN
 from app.db.connection import get_db
@@ -109,9 +109,11 @@ async def add_user(
         print(e)
         raise HTTPException(status_code=500, detail="Internal server error")  
 
-@file_engine("/displayuser",dependencies=[Depends(verify_userservices_api)])
-async def display_user(groupId:str,
-                       db: AsyncIOMotorDatabase = Depends(get_db)
+# CORRECTED: Added Query parameter for groupId
+@file_engine.get("/displayuser", dependencies=[Depends(verify_userservices_api)])
+async def display_user(
+    groupId: str = Query(..., description="Group ID to fetch users for"),
+    db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     try:
         async with await db.client.start_session() as session:
@@ -126,7 +128,7 @@ async def display_user(groupId:str,
                         "$lookup":{
                             "from": "user",
                             "localField": "userId",
-                            "foreignField": "userId",
+                            "foreignField": "_id",  # CORRECTED: Should match _id field
                             "as": "userDetails"
                         }
                     },
@@ -152,7 +154,7 @@ async def display_user(groupId:str,
 
 
 @file_engine.post("/deletegroup",dependencies=[Depends(verify_userservices_api)])
-async def exit_group(request:exitGroupModel,
+async def delete_group(request:exitGroupModel,
                      db:AsyncIOMotorDatabase=Depends(get_db)
 ):
     groupId=request.groupId
