@@ -272,4 +272,21 @@ async def get_all_files(
             detail=str(e)
         )
 
+@file_engine.get("/{group_id}",dependencies=[Depends(verify_file_api)])
+async def pin_file(request: FileAccess, db = Depends(get_db)):
+    try:
+        file_obj_id = ObjectId(request.fileId)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid fileId format")
 
+    result = await db.files.update_one(
+        {"_id": file_obj_id},
+        {"$set": {"pinned": True}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="File not found")
+    if result.modified_count == 0:
+        return {"message": "File was already pinned"}
+
+    return {"message": "File pinned successfully"}
