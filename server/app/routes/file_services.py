@@ -34,7 +34,7 @@ async def upload_file(
     fs = Depends(get_fs)
 ):
     # Role check first
-    await verify_role(user_id=userId, group_id=groupId, roles={"Owner", "Admin", "Editor"}, db=db)
+    await verify_role(user_id=userId, group_id=groupId, roles={"owner", "admin", "editor"})
 
     async with await db.client.start_session() as session:
         async with session.start_transaction():
@@ -58,8 +58,8 @@ async def upload_file(
 
                 insert_result = await db.files.insert_one(file_data, session=session)
 
-                owner_doc = await db.groupmembers.find_one(
-                    {"groupId": groupId, "role": "Owner"},
+                owner_doc = await db.groupMembers.find_one(
+                    {"groupId": groupId, "role": "owner"},
                     {"_id": 0, "userId": 1},
                     session=session
                 )
@@ -120,13 +120,12 @@ async def delete_file(
                 await verify_role(
                     user_id=data.userId,
                     group_id=filedata["groupId"],
-                    roles={"Owner", "Admin", "Editor"},
-                    db=db
+                    roles={"owner", "admin", "editor"}
                 )
 
                 # Get Owner's userId for decrement
-                owner_doc = await db.groupmembers.find_one(
-                    {"groupId": filedata["groupId"], "role": "Owner"},
+                owner_doc = await db.groupMembers.find_one(
+                    {"groupId": filedata["groupId"], "role": "owner"},
                     {"_id": 0, "userId": 1},
                     session=session
                 )
@@ -167,6 +166,7 @@ async def delete_file(
                 return {"message": f"{file_id} file deleted successfully"}
 
             except Exception as e:
+                print(e)
                 raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
 
 @file_engine.post("/download")
@@ -186,8 +186,7 @@ async def download_file(
         await verify_role(
                     user_id=data.userId,
                     group_id=file_data["groupId"],
-                    roles={"Owner","Admin","Editor","Viewer"},
-                    db=db
+                    roles={"owner","admin","editor","viewer"}
                 )
 
         gridfs_id = file_data['GridFSId']
