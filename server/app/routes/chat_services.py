@@ -23,34 +23,27 @@ def verify_chat_api(request: Request):
 class GroupConnectionManager:
     def __init__(self):
         self.groups = collections.defaultdict(list)
-        self.user_info = {}  # Store user info for each connection
+        self.user_info = {}
 
     async def connect(self, group_id: str, websocket: WebSocket, user_id: str = None, username: str = None):
         await websocket.accept()
         self.groups[group_id].append(websocket)
-        
-        # Store user info for this connection
         connection_key = f"{group_id}_{id(websocket)}"
         self.user_info[connection_key] = {
             "user_id": user_id,
             "username": username,
             "group_id": group_id
         }
-        
-        # Broadcast updated online count
         await self.broadcast_online_count(group_id)
 
     def disconnect(self, group_id: str, websocket: WebSocket):
         if websocket in self.groups[group_id]:
             self.groups[group_id].remove(websocket)
-            
-            # Remove user info
             connection_key = f"{group_id}_{id(websocket)}"
             if connection_key in self.user_info:
                 del self.user_info[connection_key]
 
     async def send_to_group(self, group_id: str, message: dict, exclude_websocket: WebSocket = None):
-        """Send message to all connections in a group, optionally excluding one"""
         message_str = json.dumps(message)
         connections_to_remove = []
         
@@ -65,15 +58,11 @@ class GroupConnectionManager:
                 print(f"Message sent to connection successfully")
             except Exception as e:
                 print(f"Failed to send message to connection: {e}")
-                # Connection is closed, mark for removal
                 connections_to_remove.append(connection)
-        
-        # Remove dead connections
         for connection in connections_to_remove:
             self.disconnect(group_id, connection)
 
     async def broadcast_online_count(self, group_id: str):
-        """Broadcast online member count to all group members"""
         online_count = self.get_active_members(group_id)
         online_message = {
             "type": "online_count",
@@ -103,26 +92,19 @@ async def group_chat(
         while True:
             data = await websocket.receive_json()
             print(f"Received data: {data}")
-            
-            # Handle different message types
             message_type = data.get("type", "message")
             
             if message_type == "identify":
-                # Store user identification
                 user_id = data.get("user", "anonymous")
                 username = data.get("username", "Anonymous")
                 
                 print(f"User identified: {username} ({user_id})")
-                
-                # Update connection with user info
                 connection_key = f"{group_id}_{id(websocket)}"
                 if connection_key in manager.user_info:
                     manager.user_info[connection_key].update({
                         "user_id": user_id,
                         "username": username
                     })
-                
-                # Send online count update
                 await manager.broadcast_online_count(group_id)
                 continue
             
@@ -136,22 +118,18 @@ async def group_chat(
                 
                 print(f"Processing message from {username}: {message}")
                 
-                # Create timestamp in ISO format
                 timestamp = datetime.now(timezone.utc)
                 
-                # Save to database
                 chat_doc = {
                     "groupId": group_id,
                     "senderId": user_id,
-                    "senderName": username,  # Store username directly
+                    "senderName": username,
                     "message": message,
                     "timestamp": timestamp
                 }
                 
                 result = await db.chat.insert_one(chat_doc)
                 print(f"Message saved to DB with ID: {result.inserted_id}")
-                
-                # Create message for broadcasting
                 broadcast_message = {
                     "type": "message",
                     "id": str(result.inserted_id),
@@ -163,8 +141,6 @@ async def group_chat(
                 }
                 
                 print(f"Broadcasting message to {len(manager.groups[group_id])} connections")
-                
-                # Broadcast to ALL group members (including sender for confirmation)
                 await manager.send_to_group(group_id, broadcast_message)
                 
     except WebSocketDisconnect:
@@ -175,31 +151,25 @@ async def group_chat(
         traceback.print_exc()
     finally:
         manager.disconnect(group_id, websocket)
-        # Broadcast updated online count after disconnect
+
         await manager.broadcast_online_count(group_id)
         print(f"Cleaned up connection for group {group_id}")
 
 @chat_engine.get("/history/{group_id}", dependencies=[Depends(verify_chat_api)])
 async def get_messages(group_id: str, db=Depends(get_db)):
     try:
-        # Get the last 100 messages sorted by latest first
         cursor = db.chat.find({"groupId": group_id}).sort("timestamp", -1)
         prev_messages = await cursor.to_list(length=100)
 
         messages_with_usernames = []
-        for msg in reversed(prev_messages):  # Reverse to show oldest first
+        for msg in reversed(prev_messages):
             sender_id = msg.get("senderId", "anonymous")
-            
-            # Try to get username from message first (if stored), then from user collection
             username = msg.get("senderName")
             if not username:
                 user_data = await db.user.find_one({"_id": sender_id})
                 username = user_data["name"] if user_data else "Anonymous"
-
-            # Use ISO timestamp format for consistency
             timestamp = msg.get("timestamp")
             if timestamp:
-                # Ensure it's a datetime object and convert to ISO format
                 if isinstance(timestamp, datetime):
                     formatted_ts = timestamp.isoformat()
                 else:
