@@ -244,10 +244,21 @@ async def remove_user(request:removeUserModel,
     userRole=request.userRole
     adminRole=request.adminRole
     try:
-         if adminRole=="owner":
+        if adminRole=="owner":
               async with await db.client.start_session() as session:
                    async with session.start_transaction():
-                        await db.group
+                        await db.groupMembers.delete_one({"groupId": groupId,"userId":userId}, session=session)
+                        return {"message":"user removed successfully"}
+        
+        elif adminRole=="admin" and userRole!="owner":
+             async with await db.client.start_session() as session:
+                   async with session.start_transaction():
+                        await db.groupMembers.delete_one({"groupId": groupId,"userId":userId}, session=session)
+                        return {"message":"user removed successfully"}
+        
+        else:
+             return {"message":"cannot remove user"}             
+
 
     except Exception as e:
         raise HTTPException(
