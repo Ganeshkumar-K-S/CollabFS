@@ -6,7 +6,7 @@ from app.db.connection import db
 import warnings
 from bson import Int64
 from fastapi import APIRouter,Request,HTTPException,Depends, Query
-from app.models.group_members_model import addUserModel,exitGroupModel
+from app.models.group_members_model import addUserModel,exitGroupModel,removeUserModel
 from starlette.status import HTTP_403_FORBIDDEN
 from app.db.connection import get_db
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -171,7 +171,6 @@ async def delete_group(request:exitGroupModel,
             async with session.start_transaction():
                 await db.chat.delete_many({"groupId":groupId},session=session)
                 await db.files.delete_many({"groupId":groupId},session=session)
-                await db.activities.delete_many({"groupId":groupId},session=session)
                 await db.groupMembers.delete_many({"groupId":groupId},session=session)
                 await db.starred.delete_many({"groupId":groupId},session=session)
                 await db.activities.insert_one({
@@ -234,3 +233,24 @@ async def exit_group(request:exitGroupModel,
             return {"message": "Group deleted successfully because owner exited"}
     except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")
+
+@file_engine.post("/removeuser",dependencies=[Depends(verify_userservices_api)])
+async def remove_user(request:removeUserModel,
+                      db:AsyncIOMotorDatabase=Depends(get_db)
+):
+    adminId=request.adminId
+    userId=request.userId
+    groupId=request.groupId
+    userRole=request.userRole
+    adminRole=request.adminRole
+    try:
+         if adminRole=="owner":
+              async with await db.client.start_session() as session:
+                   async with session.start_transaction():
+                        await db.group
+
+    except Exception as e:
+        raise HTTPException(
+             status_code=403,
+             detail=str(e)
+        )

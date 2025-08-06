@@ -16,3 +16,10 @@ class exitGroupModel(BaseModel):
     userId:str
     groupId:str
     role:str
+
+class removeUserModel(BaseModel):
+    adminId:str
+    userId:str
+    groupId:str
+    userRole:str
+    adminRole:str
