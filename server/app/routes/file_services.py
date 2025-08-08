@@ -245,13 +245,20 @@ async def search_file(
 
 
 @file_engine.get("/{group_id}",dependencies=[Depends(verify_file_api)])
-async def get_all_files(
+async def get_files(
     group_id,
+    name,
     db=Depends(get_db)
     ):
 
     try:
-        cursor=db.files.find({"groupId" : f"{group_id}"})
+        cursor=db.files.find({
+            "groupId" : group_id,
+            "name" : {
+                "$regex" : name,
+                "$options" : "i"
+            }
+        })
         if cursor is None:
             return []
         matchfiles=await cursor.to_list(length=None)
