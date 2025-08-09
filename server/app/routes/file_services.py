@@ -1,6 +1,6 @@
 from app.db.connection import get_db,get_fs
 from app.db.collections import files,activities
-from fastapi import APIRouter, UploadFile, File, HTTPException,Request,Depends,Form
+from fastapi import APIRouter, UploadFile, File, HTTPException,Request,Depends,Form,Query
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from app.models.file_model import File as FileModel, FileAccess
@@ -18,9 +18,7 @@ def verify_file_api(request : Request):
     expected_key=os.getenv('FILE_API_KEY')
     key_name="x-api-key"
     response_key=request.headers.get(key_name)
-    print(f"Expected API key: {expected_key} | Received API key: {response_key} Matching : {expected_key == response_key}")
     if expected_key!=response_key:
-        print("HERE")
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN,
             detail="Unauthorized access"

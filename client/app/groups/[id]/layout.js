@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname, useParams } from 'next/navigation';
-import { MoreVertical, Trash2, LogOut, Edit3, Files, Eye, Users, MessageCircle, Activity, ArrowLeft, Crown, Shield, User, Pencil } from 'lucide-react';
+import { MoreVertical, Trash2, LogOut, Edit3, Files, Eye, Users, MessageCircle, Activity, ArrowLeft, Crown, Shield, User, Pencil, ActivityIcon } from 'lucide-react';
 import ProfilePicture from '@/components/ProfilePicture';
 import {
   Dialog,
@@ -101,7 +101,8 @@ const GroupLayout = ({ children }) => {
   const sidebarItems = [
     { name: 'Files', icon: Files, path: 'files' },
     { name: 'Users', icon: Users, path: 'users' },
-    { name: 'Chat', icon: MessageCircle, path: 'chat' }
+    { name: 'Chat', icon: MessageCircle, path: 'chat' },
+    { name: 'Activity', icon: Activity, path: 'activity'},
   ];
 
   const getCurrentActiveItem = () => {
